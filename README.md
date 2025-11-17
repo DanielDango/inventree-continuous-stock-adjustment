@@ -4,31 +4,25 @@ Perform quick and intuitive stock adjustments by scanning barcodes to remove art
 
 ## Installation
 
-### InvenTree Plugin Manager
+Install the plugin using the methods described below.
 
-Install directly from the InvenTree plugin manager using the package name:
-```
-inventree-continouous-stock-adjustment
-```
+*Note: After the plugin is installed, it must be activated via the InvenTree plugin interface.*
 
-Or install from GitHub:
-```
-git+https://github.com/DanielDango/inventree-continuous-stock-adjustment.git
-```
+### Via User Interface
 
-### Command Line 
+Installation via the InvenTree plugin manager is the recommended approach:
 
-To install manually via the command line, run one of the following commands:
+The simplest way to install this plugin is from the InvenTree plugin interface. Enter the plugin name (`inventree-continouous-stock-adjustment`) and click the `Install` button.
 
-From PyPI:
+### Via Pip
+
+To install manually via the command line, run the following command:
+
 ```bash
 pip install inventree-continouous-stock-adjustment
 ```
 
-From GitHub (latest):
-```bash
-pip install git+https://github.com/DanielDango/inventree-continuous-stock-adjustment.git
-```
+*Note: You must be operating within the InvenTree virtual environment!*
 
 ## Configuration
 
