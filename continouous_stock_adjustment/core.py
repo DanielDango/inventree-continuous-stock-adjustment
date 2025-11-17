@@ -2,12 +2,12 @@
 
 from plugin import InvenTreePlugin
 
-from plugin.mixins import SettingsMixin, UrlsMixin, UserInterfaceMixin
+from plugin.mixins import ActionMixin, NavigationMixin, SettingsMixin, UrlsMixin, UserInterfaceMixin
 
 from . import PLUGIN_VERSION
 
 
-class ContinouousStockAdjustment(SettingsMixin, UrlsMixin, UserInterfaceMixin, InvenTreePlugin):
+class ContinouousStockAdjustment(ActionMixin, NavigationMixin, SettingsMixin, UrlsMixin, UserInterfaceMixin, InvenTreePlugin):
 
     """ContinouousStockAdjustment - custom InvenTree plugin."""
 
@@ -105,3 +105,81 @@ class ContinouousStockAdjustment(SettingsMixin, UrlsMixin, UserInterfaceMixin, I
         })
 
         return items
+
+    # Custom actions (from ActionMixin)
+    # Ref: https://docs.inventree.org/en/latest/plugins/mixins/action/
+    def get_custom_actions(self, model=None):
+        """Return custom actions for stock items."""
+        actions = []
+        
+        # Only provide actions for StockItem model
+        if model == 'stockitem':
+            actions.append({
+                'name': 'remove_package',
+                'title': 'Remove Package',
+                'description': 'Remove one package quantity from stock',
+                'icon': 'ti:package-minus:outline',
+            })
+        
+        return actions
+
+    def perform_custom_action(self, action, model, instances, **kwargs):
+        """Perform a custom action on selected instances."""
+        from decimal import Decimal
+        from company.models import SupplierPart
+        
+        if action == 'remove_package' and model == 'stockitem':
+            results = []
+            for stock_item in instances:
+                try:
+                    # Get package quantity from supplier part
+                    quantity = Decimal(1)  # Default to 1
+                    
+                    part = stock_item.part
+                    supplier_parts = SupplierPart.objects.filter(part=part).first()
+                    if supplier_parts and supplier_parts.pack_quantity_native:
+                        quantity = Decimal(supplier_parts.pack_quantity_native)
+                    
+                    # Check if enough stock is available
+                    if stock_item.quantity >= quantity:
+                        stock_item.remove_stock(
+                            quantity,
+                            kwargs.get('user'),
+                            notes='Removed one package via plugin action'
+                        )
+                        results.append({
+                            'success': True,
+                            'message': f'Removed {quantity} from stock item {stock_item.pk}'
+                        })
+                    else:
+                        results.append({
+                            'success': False,
+                            'message': f'Insufficient stock (need {quantity}, have {stock_item.quantity})'
+                        })
+                except Exception as e:
+                    results.append({
+                        'success': False,
+                        'message': f'Error: {str(e)}'
+                    })
+            
+            return results
+        
+        return []
+
+    # Custom navigation items (from NavigationMixin)
+    # Ref: https://docs.inventree.org/en/latest/plugins/mixins/navigation/
+    def get_navigation_items(self, request, **kwargs):
+        """Return custom navigation items for quick access."""
+        
+        # Only display for authenticated users
+        if not request.user or not request.user.is_authenticated:
+            return []
+        
+        return [
+            {
+                'name': 'Stock Removal',
+                'description': 'Quick barcode stock removal',
+                'link': '/home',  # Link to dashboard where the widget is available
+                'icon': 'ti:barcode:outline',
+            }
+        ]
