@@ -21,18 +21,9 @@ A powerful InvenTree plugin that enables quick and intuitive stock adjustments t
 
 ## Installation
 
-### Option 1: InvenTree Plugin Manager (Recommended)
+### Option 1: Manual Installation via pip
 
-1. Log in to your InvenTree instance as an administrator
-2. Navigate to **Settings** → **Plugins**
-3. Click **Install Plugin**
-4. Search for `inventree-continouous-stock-adjustment`
-5. Click **Install**
-6. Activate the plugin in the plugin settings
-
-### Option 2: Manual Installation via pip
-
-If you prefer to install the plugin manually:
+Install the plugin package directly:
 
 ```bash
 # Install the plugin package
@@ -41,7 +32,7 @@ pip install inventree-continouous-stock-adjustment
 # Restart your InvenTree instance
 ```
 
-### Option 3: Development Installation
+### Option 2: Development Installation
 
 For development or testing:
 
@@ -73,10 +64,9 @@ pip install dist/inventree_continouous_stock_adjustment-*.whl
 
 The plugin works with InvenTree's built-in barcode system:
 
-1. Ensure your parts have barcodes assigned
-2. Navigate to **Part** → Select a part → **Parameters** tab
-3. Add or scan barcodes for your parts
-4. The plugin will automatically detect these barcodes during scanning
+1. Ensure your parts have barcodes assigned in InvenTree
+2. Barcodes can be assigned to parts through the part detail page or via barcode scanning
+3. The plugin will automatically detect and use these barcodes during scanning
 
 ### User Permissions
 
@@ -123,13 +113,7 @@ Remove packages directly from the stock item view:
 4. Select **Remove Package**
 5. The plugin removes one package quantity (based on supplier part data) from each selected item
 
-### Navigation Menu
 
-Quick access link in the main navigation:
-
-1. Look for **Stock Removal** in the navigation menu
-2. Click to access the dashboard where the widget is available
-3. Start scanning immediately
 
 ## API Reference
 
@@ -439,7 +423,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Built for the [InvenTree](https://inventree.org/) inventory management system
 - Uses the InvenTree plugin framework and UI components
-- Thanks to the InvenTree community for support and feedback
 
 ---
 
