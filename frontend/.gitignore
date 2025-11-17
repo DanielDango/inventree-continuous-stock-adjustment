@@ -1,6 +1,7 @@
 # Node modules
 node_modules
 *.tsbuildinfo
+package-lock.json
 
 # Compiled static code
 static

@@ -3,7 +3,6 @@ from pint import UnitRegistry
 from inventree.api import InvenTreeAPI
 from inventree.company import SupplierPart
 from inventree.part import Part
-from inventree.stock import StockItem
 from requests import HTTPError
 
 SERVER_ADDRESS = 'http://inventree.localhost/'

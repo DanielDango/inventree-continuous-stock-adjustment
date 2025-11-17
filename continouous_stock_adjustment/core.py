@@ -2,12 +2,12 @@
 
 from plugin import InvenTreePlugin
 
-from plugin.mixins import SettingsMixin, UrlsMixin, UserInterfaceMixin
+from plugin.mixins import ActionMixin, NavigationMixin, SettingsMixin, UrlsMixin, UserInterfaceMixin
 
 from . import PLUGIN_VERSION
 
 
-class ContinouousStockAdjustment(SettingsMixin, UrlsMixin, UserInterfaceMixin, InvenTreePlugin):
+class ContinouousStockAdjustment(ActionMixin, NavigationMixin, SettingsMixin, UrlsMixin, UserInterfaceMixin, InvenTreePlugin):
 
     """ContinouousStockAdjustment - custom InvenTree plugin."""
 
@@ -29,85 +29,132 @@ class ContinouousStockAdjustment(SettingsMixin, UrlsMixin, UserInterfaceMixin, I
 
     # Render custom UI elements to the plugin settings page
     ADMIN_SOURCE = "Settings.js:renderPluginSettings"
-    
-    
+
     # Plugin settings (from SettingsMixin)
     # Ref: https://docs.inventree.org/en/latest/plugins/mixins/settings/
     SETTINGS = {
-        # Define your plugin settings here...
-        'CUSTOM_VALUE': {
-            'name': 'Custom Value',
-            'description': 'A custom value',
-            'validator': int,
-            'default': 42,
-        }
+        # Plugin settings can be defined here if needed in the future
     }
-    
-    
-    
-    
-    
+
     # Custom URL endpoints (from UrlsMixin)
     # Ref: https://docs.inventree.org/en/latest/plugins/mixins/urls/
     def setup_urls(self):
         """Configure custom URL endpoints for this plugin."""
         from django.urls import path
-        from .views import ExampleView
+        from .views import BarcodeScanView
 
         return [
-            # Provide path to a simple custom view - replace this with your own views
-            path('example/', ExampleView.as_view(), name='example-view'),
+            # Barcode scanning endpoint for stock removal
+            path('scan/', BarcodeScanView.as_view(), name='barcode-scan'),
         ]
-    
 
     # User interface elements (from UserInterfaceMixin)
     # Ref: https://docs.inventree.org/en/latest/plugins/mixins/ui/
-    
+
     # Custom UI panels
     def get_ui_panels(self, request, context: dict, **kwargs):
         """Return a list of custom panels to be rendered in the InvenTree user interface."""
-
-        panels = []
-
-        # Only display this panel for the 'part' target
-        if context.get('target_model') == 'part':
-            panels.append({
-                'key': 'continouous-stock-adjustment-panel',
-                'title': 'Continouous Stock Adjustment',
-                'description': 'Custom panel description',
-                'icon': 'ti:mood-smile:outline',
-                'source': self.plugin_static_file('Panel.js:renderContinouousStockAdjustmentPanel'),
-                'context': {
-                    # Provide additional context data to the panel
-                    'settings': self.get_settings_dict(),
-                    'foo': 'bar'
-                }
-            })
-        
-        return panels
-    
+        # No custom panels needed for this plugin
+        return []
 
     # Custom dashboard items
     def get_ui_dashboard_items(self, request, context: dict, **kwargs):
         """Return a list of custom dashboard items to be rendered in the InvenTree user interface."""
 
-        # Example: only display for 'staff' users
-        if not request.user or not request.user.is_staff:
+        # Only display for authenticated users
+        if not request.user or not request.user.is_authenticated:
             return []
         
         items = []
 
         items.append({
             'key': 'continouous-stock-adjustment-dashboard',
-            'title': 'Continouous Stock Adjustment Dashboard Item',
-            'description': 'Custom dashboard item',
-            'icon': 'ti:dashboard:outline',
+            'title': 'Quick Stock Removal',
+            'description': 'Scan barcodes to quickly remove stock',
+            'icon': 'ti:barcode:outline',
             'source': self.plugin_static_file('Dashboard.js:renderContinouousStockAdjustmentDashboardItem'),
             'context': {
                 # Provide additional context data to the dashboard item
                 'settings': self.get_settings_dict(),
-                'bar': 'foo'
             }
         })
 
         return items
+
+    # Custom actions (from ActionMixin)
+    # Ref: https://docs.inventree.org/en/latest/plugins/mixins/action/
+    def get_custom_actions(self, model=None):
+        """Return custom actions for stock items."""
+        actions = []
+        
+        # Only provide actions for StockItem model
+        if model == 'stockitem':
+            actions.append({
+                'name': 'remove_package',
+                'title': 'Remove Package',
+                'description': 'Remove one package quantity from stock',
+                'icon': 'ti:package-minus:outline',
+            })
+        
+        return actions
+
+    def perform_custom_action(self, action, model, instances, **kwargs):
+        """Perform a custom action on selected instances."""
+        from decimal import Decimal
+        from company.models import SupplierPart
+        
+        if action == 'remove_package' and model == 'stockitem':
+            results = []
+            for stock_item in instances:
+                try:
+                    # Get package quantity from supplier part
+                    quantity = Decimal(1)  # Default to 1
+                    
+                    part = stock_item.part
+                    supplier_parts = SupplierPart.objects.filter(part=part).first()
+                    if supplier_parts and supplier_parts.pack_quantity_native:
+                        quantity = Decimal(supplier_parts.pack_quantity_native)
+                    
+                    # Check if enough stock is available
+                    if stock_item.quantity >= quantity:
+                        stock_item.remove_stock(
+                            quantity,
+                            kwargs.get('user'),
+                            notes='Removed one package via plugin action'
+                        )
+                        results.append({
+                            'success': True,
+                            'message': f'Removed {quantity} from stock item {stock_item.pk}'
+                        })
+                    else:
+                        results.append({
+                            'success': False,
+                            'message': f'Insufficient stock (need {quantity}, have {stock_item.quantity})'
+                        })
+                except Exception as e:
+                    results.append({
+                        'success': False,
+                        'message': f'Error: {str(e)}'
+                    })
+            
+            return results
+        
+        return []
+
+    # Custom navigation items (from NavigationMixin)
+    # Ref: https://docs.inventree.org/en/latest/plugins/mixins/navigation/
+    def get_navigation_items(self, request, **kwargs):
+        """Return custom navigation items for quick access."""
+        
+        # Only display for authenticated users
+        if not request.user or not request.user.is_authenticated:
+            return []
+        
+        return [
+            {
+                'name': 'Stock Removal',
+                'description': 'Quick barcode stock removal',
+                'link': '/home',  # Link to dashboard where the widget is available
+                'icon': 'ti:barcode:outline',
+            }
+        ]

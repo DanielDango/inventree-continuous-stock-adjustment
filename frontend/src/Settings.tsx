@@ -1,34 +1,24 @@
 import type { InvenTreePluginContext } from '@inventreedb/ui';
-import { Alert, Button, Text } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+import { Alert, Text } from '@mantine/core';
 
 function PluginSettingsDisplay({
-    context: _context
+  context: _context
 }: {
-    context: InvenTreePluginContext;
+  context: InvenTreePluginContext;
 }) {
-
-    return (
-        <Alert color='blue' title='Hello World'>
-            <Text>This is a custom settings page for the ContinouousStockAdjustment plugin!</Text>
-            <Text>Custom UI elements can be rendered here</Text>
-            <Button color="blue" onClick={() => {
-                notifications.show({
-                    title: 'Hello World',
-                    message: 'This is a custom notification from the ContinouousStockAdjustment plugin!',
-                    color: 'blue',
-                });
-            }}>
-                Click Me!
-            </Button>
-        </Alert>
-    )
-
+  return (
+    <Alert color='blue' title='Continuous Stock Adjustment'>
+      <Text>
+        This plugin provides barcode scanning for quick stock removal.
+      </Text>
+      <Text>
+        Use the dashboard widget to scan barcodes and remove package quantities
+        from stock.
+      </Text>
+    </Alert>
+  );
 }
 
-
 export function renderPluginSettings(context: InvenTreePluginContext) {
-    return (
-        <PluginSettingsDisplay context={context} />
-    );
+  return <PluginSettingsDisplay context={context} />;
 }
