@@ -51,6 +51,8 @@ python -m build
 pip install dist/inventree_continouous_stock_adjustment-*.whl
 ```
 
+*Note: You must be operating within the InvenTree virtual environment!*
+
 ## Configuration
 
 ### Enabling the Plugin
