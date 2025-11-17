@@ -14,17 +14,17 @@ msgstr ""
 "Plural-Forms: \n"
 
 #: src/Panel.tsx:96
-msgid "Translated Text"
-msgstr "Texte traduit"
+#~ msgid "Translated Text"
+#~ msgstr "Texte traduit"
 
 #: src/Panel.tsx:97
-msgid "Translated text, provided by custom code!"
-msgstr "Texte traduit, fourni par un code personnalisé !"
+#~ msgid "Translated text, provided by custom code!"
+#~ msgstr "Texte traduit, fourni par un code personnalisé !"
 
 #: src/Panel.tsx:98
-msgid "Translations are loaded automatically."
-msgstr "Les traductions sont chargées automatiquement."
+#~ msgid "Translations are loaded automatically."
+#~ msgstr "Les traductions sont chargées automatiquement."
 
 #: src/Panel.tsx:99
-msgid "Fallback locale is used if no translation is available"
-msgstr ""
+#~ msgid "Fallback locale is used if no translation is available"
+#~ msgstr ""
