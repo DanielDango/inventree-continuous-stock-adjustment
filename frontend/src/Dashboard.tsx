@@ -169,9 +169,9 @@ export function renderContinouousStockAdjustmentDashboardItem(
   // Defensive check for context
   if (!context) {
     console.error('Dashboard: Context is null or undefined');
-    return <Text c="red">Error: Plugin context not provided</Text>;
+    return <Text c='red'>Error: Plugin context not provided</Text>;
   }
-  
+
   checkPluginVersion(context);
   return <ContinouousStockAdjustmentDashboardItem context={context} />;
 }
