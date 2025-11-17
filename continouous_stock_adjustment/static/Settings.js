@@ -1,0 +1,2 @@
+const n=window.MantineCore.Alert,t=window.MantineCore.Text;function o({context:e}){return React.createElement(n,{color:"blue",title:"Continuous Stock Adjustment"},React.createElement(t,null,"This plugin provides barcode scanning for quick stock removal."),React.createElement(t,null,"Use the dashboard widget to scan barcodes and remove package quantities from stock."))}function c(e){return React.createElement(o,{context:e})}export{c as renderPluginSettings};
+//# sourceMappingURL=Settings.js.map

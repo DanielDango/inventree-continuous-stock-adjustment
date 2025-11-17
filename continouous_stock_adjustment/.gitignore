@@ -1,2 +1,3 @@
 # static files are generated from ../frontend directory
-static
+# Note: static files MUST be committed for git-based installations to work
+# static
