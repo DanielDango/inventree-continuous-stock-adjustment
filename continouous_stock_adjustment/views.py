@@ -9,7 +9,7 @@ from .serializers import BarcodeScanRequestSerializer, BarcodeScanResponseSerial
 
 class BarcodeScanView(APIView):
     """API view for scanning barcodes and removing stock.
-    
+
     This view handles barcode scanning and performs stock removal operations
     similar to the functionality demonstrated in api_test.py.
     """
@@ -23,71 +23,62 @@ class BarcodeScanView(APIView):
         from company.models import SupplierPart
         from part.models import Part
         from stock.models import StockItem
+        from common.models import InvenTreeBarcode
 
         # Validate input
         request_serializer = self.serializer_class(data=request.data)
         if not request_serializer.is_valid():
             response_data = {
-                'success': False,
-                'message': f"Invalid request: {request_serializer.errors}"
+                "success": False,
+                "message": f"Invalid request: {request_serializer.errors}",
             }
             response_serializer = BarcodeScanResponseSerializer(data=response_data)
             response_serializer.is_valid()
             return Response(response_serializer.data, status=400)
 
-        barcode = request_serializer.validated_data['barcode']
-        quantity = request_serializer.validated_data.get('quantity')
+        barcode = request_serializer.validated_data["barcode"]
+        quantity = request_serializer.validated_data.get("quantity")
 
         try:
-            # Use InvenTree's barcode plugin system as the primary method
-            # This handles all barcode types through the centralized barcode API
-            from plugin.barcode import barcode_plugins_scan
-            
-            # Scan the barcode using InvenTree's barcode plugin system
-            scan_result = barcode_plugins_scan(barcode)
-            
-            # Handle scan result and extract part
+            # Use InvenTree's barcode model to look up the barcode
+            # This uses the ORM to query the barcode database directly
             part = None
-            if not scan_result:
-                # Barcode not recognized by any plugin
-                response_data = {
-                    'success': False,
-                    'message': 'Barcode not found or does not match a part'
-                }
-                response_serializer = BarcodeScanResponseSerializer(data=response_data)
-                response_serializer.is_valid()
-                return Response(response_serializer.data, status=404)
-            elif 'part' in scan_result:
-                # Direct part barcode
-                part_id = scan_result['part'].get('pk')
-                if part_id:
-                    part = Part.objects.get(pk=part_id)
-            elif 'stockitem' in scan_result:
-                # Stock item barcode - get the part from the stock item
-                stock_item_id = scan_result['stockitem'].get('pk')
-                if stock_item_id:
-                    stock_item = StockItem.objects.get(pk=stock_item_id)
-                    part = stock_item.part
-            
+
+            # Try to find the barcode in InvenTree's barcode table
+            barcode_item = InvenTreeBarcode.objects.filter(barcode=barcode).first()
+
+            if barcode_item:
+                # Get the linked object through the generic foreign key
+                linked_object = barcode_item.item
+
+                # Check if it's a Part
+                if isinstance(linked_object, Part):
+                    part = linked_object
+                # Check if it's a StockItem
+                elif isinstance(linked_object, StockItem):
+                    part = linked_object.part
+
             if not part:
-                # Scan succeeded but couldn't extract a valid part
+                # Barcode not found or doesn't link to a part/stock item
                 response_data = {
-                    'success': False,
-                    'message': 'Barcode not found or does not match a part'
+                    "success": False,
+                    "message": "Barcode not found or does not match a part",
                 }
                 response_serializer = BarcodeScanResponseSerializer(data=response_data)
                 response_serializer.is_valid()
                 return Response(response_serializer.data, status=404)
-            
+
             # Get stock items for this part
-            stock_items = StockItem.objects.filter(part=part, quantity__gt=0).order_by('id')
-            
+            stock_items = StockItem.objects.filter(part=part, quantity__gt=0).order_by(
+                "id"
+            )
+
             if not stock_items.exists():
                 response_data = {
-                    'success': False,
-                    'message': f'No stock available for part: {part.name}',
-                    'part_id': part.pk,
-                    'part_name': part.name
+                    "success": False,
+                    "message": f"No stock available for part: {part.name}",
+                    "part_id": part.pk,
+                    "part_name": part.name,
                 }
                 response_serializer = BarcodeScanResponseSerializer(data=response_data)
                 response_serializer.is_valid()
@@ -97,7 +88,7 @@ class BarcodeScanView(APIView):
             if quantity is None or quantity == 0:
                 # Try to get package quantity from supplier part
                 quantity = Decimal(1)  # Default to 1 if no supplier part data
-                
+
                 # Try to find supplier part with pack quantity
                 supplier_parts = SupplierPart.objects.filter(part=part).first()
                 if supplier_parts and supplier_parts.pack_quantity_native:
@@ -108,17 +99,17 @@ class BarcodeScanView(APIView):
             # Remove stock from available items
             quantity_removed = Decimal(0)
             remaining_quantity = quantity
-            
+
             for stock_item in stock_items:
                 if remaining_quantity <= 0:
                     break
-                    
+
                 if stock_item.quantity >= remaining_quantity:
                     # This item has enough stock
                     stock_item.remove_stock(
                         remaining_quantity,
                         request.user,
-                        notes=f"Removed via barcode scan: {barcode}"
+                        notes=f"Removed via barcode scan: {barcode}",
                     )
                     quantity_removed += remaining_quantity
                     remaining_quantity = Decimal(0)
@@ -128,21 +119,23 @@ class BarcodeScanView(APIView):
                     stock_item.remove_stock(
                         item_quantity,
                         request.user,
-                        notes=f"Removed via barcode scan: {barcode}"
+                        notes=f"Removed via barcode scan: {barcode}",
                     )
                     quantity_removed += item_quantity
                     remaining_quantity -= item_quantity
 
             # Calculate remaining stock
-            remaining_stock = sum(item.quantity for item in StockItem.objects.filter(part=part))
+            remaining_stock = sum(
+                item.quantity for item in StockItem.objects.filter(part=part)
+            )
 
             response_data = {
-                'success': True,
-                'message': f'Successfully removed {quantity_removed} {part.units} from stock',
-                'part_id': part.pk,
-                'part_name': part.name,
-                'quantity_removed': float(quantity_removed),
-                'remaining_stock': float(remaining_stock)
+                "success": True,
+                "message": f"Successfully removed {quantity_removed} {part.units} from stock",
+                "part_id": part.pk,
+                "part_name": part.name,
+                "quantity_removed": float(quantity_removed),
+                "remaining_stock": float(remaining_stock),
             }
 
             response_serializer = BarcodeScanResponseSerializer(data=response_data)
@@ -151,17 +144,14 @@ class BarcodeScanView(APIView):
             return Response(response_serializer.data, status=200)
 
         except Part.DoesNotExist:
-            response_data = {
-                'success': False,
-                'message': 'Part not found'
-            }
+            response_data = {"success": False, "message": "Part not found"}
             response_serializer = BarcodeScanResponseSerializer(data=response_data)
             response_serializer.is_valid()
             return Response(response_serializer.data, status=404)
         except Exception as e:
             response_data = {
-                'success': False,
-                'message': f'Error processing barcode: {str(e)}'
+                "success": False,
+                "message": f"Error processing barcode: {str(e)}",
             }
             response_serializer = BarcodeScanResponseSerializer(data=response_data)
             response_serializer.is_valid()
