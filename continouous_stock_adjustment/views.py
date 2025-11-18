@@ -23,7 +23,7 @@ class BarcodeScanView(APIView):
         from company.models import SupplierPart
         from part.models import Part
         from stock.models import StockItem
-        from plugin.barcode import barcode_plugins_scan
+        from django.db.models import Q
 
         # Validate input
         request_serializer = self.serializer_class(data=request.data)
@@ -40,32 +40,37 @@ class BarcodeScanView(APIView):
         quantity = request_serializer.validated_data.get('quantity')
 
         try:
-            # Use InvenTree's barcode plugin system as the primary method
-            # This handles all barcode types through the centralized barcode API
-            scan_result = barcode_plugins_scan(barcode)
-            
-            # Handle scan result and extract part
+            # Use direct database queries to find barcode matches
+            # This avoids relying on plugin APIs that may not be available
             part = None
-            if not scan_result:
-                # Barcode not recognized by any plugin
-                response_data = {
-                    'success': False,
-                    'message': 'Barcode not found or does not match a part'
-                }
-                response_serializer = BarcodeScanResponseSerializer(data=response_data)
-                response_serializer.is_valid()
-                return Response(response_serializer.data, status=404)
-            elif 'part' in scan_result:
-                # Direct part barcode
-                part_id = scan_result['part'].get('pk')
-                if part_id:
-                    part = Part.objects.get(pk=part_id)
-            elif 'stockitem' in scan_result:
-                # Stock item barcode - get the part from the stock item
-                stock_item_id = scan_result['stockitem'].get('pk')
-                if stock_item_id:
-                    stock_item = StockItem.objects.get(pk=stock_item_id)
-                    part = stock_item.part
+            
+            # Try to find a Part with matching barcode
+            # Check both barcode_data and barcode_hash fields (common in InvenTree)
+            part_query = Q()
+            if hasattr(Part, 'barcode_data'):
+                part_query |= Q(barcode_data=barcode)
+            if hasattr(Part, 'barcode_hash'):
+                part_query |= Q(barcode_hash=barcode)
+            if hasattr(Part, 'barcode'):
+                part_query |= Q(barcode=barcode)
+                
+            if part_query:
+                part = Part.objects.filter(part_query).first()
+            
+            # If no part found, try to find a StockItem with matching barcode
+            if not part:
+                stock_query = Q()
+                if hasattr(StockItem, 'barcode_data'):
+                    stock_query |= Q(barcode_data=barcode)
+                if hasattr(StockItem, 'barcode_hash'):
+                    stock_query |= Q(barcode_hash=barcode)
+                if hasattr(StockItem, 'barcode'):
+                    stock_query |= Q(barcode=barcode)
+                    
+                if stock_query:
+                    stock_item = StockItem.objects.filter(stock_query).first()
+                    if stock_item:
+                        part = stock_item.part
             
             if not part:
                 # Scan succeeded but couldn't extract a valid part
