@@ -83,7 +83,7 @@ class ContinouousStockAdjustment(ActionMixin, AppMixin, NavigationMixin, Setting
         return items
 
     # Custom UI features (from UserInterfaceMixin)
-    def get_ui_features(self, feature_type, context, **kwargs):
+    def get_ui_features(self, request, feature_type, context, **kwargs):
         """Return custom UI features for creating standalone pages."""
         
         features = []
