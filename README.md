@@ -64,9 +64,10 @@ The plugin provides three ways to remove stock via barcode scanning:
 
 ### 1. Standalone Page View (Recommended)
 
-Access the dedicated stock removal page via the navigation menu:
+Access the dedicated stock removal page via the navigation menu or directly at:
+**`/app/plugin/continouous-stock-adjustment/stock-removal/`**
 
-1. **Navigate**: Click **Stock Removal** in the InvenTree navigation menu
+1. **Navigate**: Click **Stock Removal** in the InvenTree navigation menu (or visit the URL directly)
 2. **Scan or Enter Barcode**: Use a barcode scanner or manually type the barcode
 3. **Press Enter or Click Button**: The system automatically processes the barcode
 4. **View Results**: Success/failure notifications appear with quantity and remaining stock details
