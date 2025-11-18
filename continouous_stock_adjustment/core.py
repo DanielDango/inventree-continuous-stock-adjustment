@@ -2,12 +2,12 @@
 
 from plugin import InvenTreePlugin
 
-from plugin.mixins import ActionMixin, NavigationMixin, SettingsMixin, UrlsMixin, UserInterfaceMixin
+from plugin.mixins import ActionMixin, AppMixin, NavigationMixin, SettingsMixin, UrlsMixin, UserInterfaceMixin
 
 from . import PLUGIN_VERSION
 
 
-class ContinouousStockAdjustment(ActionMixin, NavigationMixin, SettingsMixin, UrlsMixin, UserInterfaceMixin, InvenTreePlugin):
+class ContinouousStockAdjustment(ActionMixin, AppMixin, NavigationMixin, SettingsMixin, UrlsMixin, UserInterfaceMixin, InvenTreePlugin):
 
     """ContinouousStockAdjustment - custom InvenTree plugin."""
 
@@ -54,7 +54,8 @@ class ContinouousStockAdjustment(ActionMixin, NavigationMixin, SettingsMixin, Ur
     # Custom UI panels
     def get_ui_panels(self, request, context: dict, **kwargs):
         """Return a list of custom panels to be rendered in the InvenTree user interface."""
-        # No custom panels needed for this plugin
+        # Scanning works independently of a concrete part/stock location
+        # So we don't add panels to specific pages
         return []
 
     # Custom dashboard items
@@ -80,6 +81,24 @@ class ContinouousStockAdjustment(ActionMixin, NavigationMixin, SettingsMixin, Ur
         })
 
         return items
+
+    # Custom UI features (from UserInterfaceMixin)
+    def get_ui_features(self, feature_type, context, **kwargs):
+        """Return custom UI features for creating standalone pages."""
+        
+        features = []
+        
+        # Add a custom "app" page for stock removal
+        if feature_type == 'app':
+            features.append({
+                'key': 'stock-removal',
+                'title': 'Stock Removal',
+                'description': 'Quick barcode scanning for stock removal',
+                'icon': 'ti:barcode:outline',
+                'source': self.plugin_static_file('StockRemovalPage.js:renderStockRemovalPage'),
+            })
+        
+        return features
 
     # Custom actions (from ActionMixin)
     # Ref: https://docs.inventree.org/en/latest/plugins/mixins/action/
@@ -154,7 +173,7 @@ class ContinouousStockAdjustment(ActionMixin, NavigationMixin, SettingsMixin, Ur
             {
                 'name': 'Stock Removal',
                 'description': 'Quick barcode stock removal',
-                'link': '/home',  # Link to dashboard where the widget is available
+                'link': '/app/plugin/continouous-stock-adjustment/stock-removal/',
                 'icon': 'ti:barcode:outline',
             }
         ]
