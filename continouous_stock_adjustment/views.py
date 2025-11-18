@@ -23,8 +23,6 @@ class BarcodeScanView(APIView):
         from company.models import SupplierPart
         from part.models import Part
         from stock.models import StockItem
-        from InvenTree.helpers import str2bool
-        from common.models import InvenTreeSetting
 
         # Validate input
         request_serializer = self.serializer_class(data=request.data)
@@ -41,11 +39,7 @@ class BarcodeScanView(APIView):
         quantity = request_serializer.validated_data.get('quantity')
 
         try:
-            # Use InvenTree's barcode model to scan
-            # Import here to avoid circular imports
-            from InvenTree.models import InvenTreeBarcodeMixin
-            
-            # Scan for matching barcode - checks all models that have barcodes
+            # Scan for matching barcode in Part and StockItem models
             part = None
             stock_item = None
             
