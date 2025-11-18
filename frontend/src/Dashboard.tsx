@@ -3,7 +3,15 @@ import {
   checkPluginVersion,
   type InvenTreePluginContext
 } from '@inventreedb/ui';
-import { Anchor, Button, Paper, Stack, Text, TextInput, Title } from '@mantine/core';
+import {
+  Anchor,
+  Button,
+  Paper,
+  Stack,
+  Text,
+  TextInput,
+  Title
+} from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useCallback, useState } from 'react';
 
@@ -101,7 +109,8 @@ function ContinouousStockAdjustmentDashboardItem({
     [handleScan, isScanning]
   );
 
-  const stockRemovalUrl = '/app/plugin/continouous-stock-adjustment/stock-removal/';
+  const stockRemovalUrl =
+    '/app/plugin/continouous-stock-adjustment/stock-removal/';
 
   return (
     <Stack gap='md'>
