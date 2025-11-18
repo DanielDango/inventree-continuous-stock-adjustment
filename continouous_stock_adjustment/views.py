@@ -23,7 +23,6 @@ class BarcodeScanView(APIView):
         from company.models import SupplierPart
         from part.models import Part
         from stock.models import StockItem
-        from plugin.registry import registry
 
         # Validate input
         request_serializer = self.serializer_class(data=request.data)
@@ -40,32 +39,24 @@ class BarcodeScanView(APIView):
         quantity = request_serializer.validated_data.get('quantity')
 
         try:
-            # Use InvenTree's plugin registry to scan the barcode
-            # This uses the proper plugin API instead of direct model queries
-            scan_result = registry.scan_barcode(barcode)
-            
-            # Handle scan result and extract part
+            # Scan for matching barcode in Part and StockItem models
             part = None
-            if not scan_result:
-                # Barcode not recognized by any plugin
-                response_data = {
-                    'success': False,
-                    'message': 'Barcode not found or does not match a part'
-                }
-                response_serializer = BarcodeScanResponseSerializer(data=response_data)
-                response_serializer.is_valid()
-                return Response(response_serializer.data, status=404)
-            elif 'part' in scan_result:
-                # Direct part barcode
-                part_id = scan_result['part'].get('pk')
-                if part_id:
-                    part = Part.objects.get(pk=part_id)
-            elif 'stockitem' in scan_result:
-                # Stock item barcode - get the part from the stock item
-                stock_item_id = scan_result['stockitem'].get('pk')
-                if stock_item_id:
-                    stock_item = StockItem.objects.get(pk=stock_item_id)
-                    part = stock_item.part
+            stock_item = None
+            
+            # Try Part first
+            try:
+                part = Part.objects.get(barcode=barcode)
+            except (Part.DoesNotExist, AttributeError):
+                pass
+            
+            # If no part, try StockItem
+            if not part:
+                try:
+                    stock_item = StockItem.objects.get(barcode=barcode)
+                    if stock_item:
+                        part = stock_item.part
+                except (StockItem.DoesNotExist, AttributeError):
+                    pass
             
             if not part:
                 # Scan succeeded but couldn't extract a valid part
