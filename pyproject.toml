@@ -28,7 +28,7 @@ classifiers = [
 ]
 
 [project.entry-points."inventree_plugins"]
-continouous_stock_adjustment = "continouous_stock_adjustment.core:ContinouousStockAdjustment"
+ContinouousStockAdjustment = "continouous_stock_adjustment.core:ContinouousStockAdjustment"
 
 [tool.setuptools.packages.find]
 where = [""]
