@@ -23,7 +23,7 @@ class BarcodeScanView(APIView):
         from company.models import SupplierPart
         from part.models import Part
         from stock.models import StockItem
-        from common.models import InvenTreeBarcode
+        from plugin.registry import registry
 
         # Validate input
         request_serializer = self.serializer_class(data=request.data)
@@ -40,26 +40,37 @@ class BarcodeScanView(APIView):
         quantity = request_serializer.validated_data.get("quantity")
 
         try:
-            # Use InvenTree's barcode model to look up the barcode
-            # This uses the ORM to query the barcode database directly
+            # Use InvenTree's plugin registry to scan the barcode
+            # This uses the proper plugin API instead of direct model queries
             part = None
 
-            # Try to find the barcode in InvenTree's barcode table
-            barcode_item = InvenTreeBarcode.objects.filter(barcode=barcode).first()
+            # Scan the barcode using InvenTree's plugin registry
+            scan_result = registry.scan_barcode(barcode)
 
-            if barcode_item:
-                # Get the linked object through the generic foreign key
-                linked_object = barcode_item.item
-
-                # Check if it's a Part
-                if isinstance(linked_object, Part):
-                    part = linked_object
-                # Check if it's a StockItem
-                elif isinstance(linked_object, StockItem):
-                    part = linked_object.part
+            # Handle scan result and extract part
+            if not scan_result:
+                # Barcode not recognized
+                response_data = {
+                    "success": False,
+                    "message": "Barcode not found or does not match a part",
+                }
+                response_serializer = BarcodeScanResponseSerializer(data=response_data)
+                response_serializer.is_valid()
+                return Response(response_serializer.data, status=404)
+            elif "part" in scan_result:
+                # Direct part barcode
+                part_id = scan_result["part"].get("pk")
+                if part_id:
+                    part = Part.objects.get(pk=part_id)
+            elif "stockitem" in scan_result:
+                # Stock item barcode - get the part from the stock item
+                stock_item_id = scan_result["stockitem"].get("pk")
+                if stock_item_id:
+                    stock_item = StockItem.objects.get(pk=stock_item_id)
+                    part = stock_item.part
 
             if not part:
-                # Barcode not found or doesn't link to a part/stock item
+                # Scan succeeded but couldn't extract a valid part
                 response_data = {
                     "success": False,
                     "message": "Barcode not found or does not match a part",
