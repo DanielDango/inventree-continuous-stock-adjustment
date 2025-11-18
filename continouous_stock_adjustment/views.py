@@ -1,10 +1,24 @@
 """API views for the ContinouousStockAdjustment plugin."""
 
+from django.views.generic import TemplateView
 from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .serializers import BarcodeScanRequestSerializer, BarcodeScanResponseSerializer
+
+
+class StockRemovalPageView(TemplateView):
+    """View for the stock removal page accessible from navigation menu."""
+    
+    template_name = 'continouous_stock_adjustment/stock_removal.html'
+    
+    def get_context_data(self, **kwargs):
+        """Add plugin context to the template."""
+        context = super().get_context_data(**kwargs)
+        context['plugin_name'] = 'ContinouousStockAdjustment'
+        context['page_title'] = 'Quick Stock Removal'
+        return context
 
 
 class BarcodeScanView(APIView):
@@ -39,11 +53,39 @@ class BarcodeScanView(APIView):
         quantity = request_serializer.validated_data.get('quantity')
 
         try:
-            # Scan the barcode to find the associated item
-            from plugin.registry import registry
-            barcode_data = registry.scan_barcode(barcode)
-
-            if not barcode_data or 'part' not in barcode_data:
+            # Try to find part by barcode using InvenTree's barcode system
+            # First, try to find a Part with matching barcode
+            part = None
+            stock_item = None
+            
+            # Try to find part directly by barcode
+            parts_with_barcode = Part.objects.filter(barcode=barcode)
+            if parts_with_barcode.exists():
+                part = parts_with_barcode.first()
+            else:
+                # Try to find stock item with this barcode
+                stock_items_with_barcode = StockItem.objects.filter(barcode=barcode)
+                if stock_items_with_barcode.exists():
+                    stock_item = stock_items_with_barcode.first()
+                    part = stock_item.part
+                else:
+                    # Try using InvenTree's barcode plugin system if available
+                    try:
+                        from plugin.barcode import barcode_plugins_scan
+                        scan_result = barcode_plugins_scan(barcode)
+                        if scan_result and 'part' in scan_result:
+                            part_id = scan_result['part'].get('pk')
+                            if part_id:
+                                part = Part.objects.get(pk=part_id)
+                        elif scan_result and 'stockitem' in scan_result:
+                            stock_item_id = scan_result['stockitem'].get('pk')
+                            if stock_item_id:
+                                stock_item = StockItem.objects.get(pk=stock_item_id)
+                                part = stock_item.part
+                    except ImportError:
+                        pass
+            
+            if not part:
                 response_data = {
                     'success': False,
                     'message': 'Barcode not found or does not match a part'
@@ -51,19 +93,6 @@ class BarcodeScanView(APIView):
                 response_serializer = BarcodeScanResponseSerializer(data=response_data)
                 response_serializer.is_valid()
                 return Response(response_serializer.data, status=404)
-
-            # Get the part
-            part_id = barcode_data['part'].get('pk')
-            if not part_id:
-                response_data = {
-                    'success': False,
-                    'message': 'Invalid part data in barcode'
-                }
-                response_serializer = BarcodeScanResponseSerializer(data=response_data)
-                response_serializer.is_valid()
-                return Response(response_serializer.data, status=400)
-
-            part = Part.objects.get(pk=part_id)
             
             # Get stock items for this part
             stock_items = StockItem.objects.filter(part=part, quantity__gt=0).order_by('id')
