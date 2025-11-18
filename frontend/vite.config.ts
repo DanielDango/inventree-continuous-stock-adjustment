@@ -38,6 +38,7 @@ export default defineConfig({
   ],
   esbuild: {
     jsx: 'preserve',
+    sourcemap: false,
   },
   build: {
     // minify: false,
@@ -58,6 +59,7 @@ export default defineConfig({
         entryFileNames: '[name].js',
         assetFileNames: 'assets/[name].[ext]',
         globals: externalLibs,
+        sourcemap: false,
       },
       external: externalKeys,
     }
