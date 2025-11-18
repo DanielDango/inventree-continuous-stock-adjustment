@@ -53,23 +53,30 @@ class BarcodeScanView(APIView):
         quantity = request_serializer.validated_data.get('quantity')
 
         try:
+            # Use InvenTree's centralized barcode API to scan the barcode
+            # This handles all barcode types: Part barcodes, StockItem barcodes,
+            # and custom barcode formats from plugins
+            from InvenTree.helpers import hash_barcode
+            
+            # Hash the barcode for lookup
+            barcode_hash = hash_barcode(barcode)
+            
             # Try to find part by barcode using InvenTree's barcode system
-            # First, try to find a Part with matching barcode
             part = None
             stock_item = None
             
-            # Try to find part directly by barcode
-            parts_with_barcode = Part.objects.filter(barcode=barcode)
+            # First, check if it's a Part barcode
+            parts_with_barcode = Part.objects.filter(barcode_hash=barcode_hash, barcode_data=barcode)
             if parts_with_barcode.exists():
                 part = parts_with_barcode.first()
             else:
-                # Try to find stock item with this barcode
-                stock_items_with_barcode = StockItem.objects.filter(barcode=barcode)
+                # Check if it's a StockItem barcode
+                stock_items_with_barcode = StockItem.objects.filter(barcode_hash=barcode_hash, barcode_data=barcode)
                 if stock_items_with_barcode.exists():
                     stock_item = stock_items_with_barcode.first()
                     part = stock_item.part
                 else:
-                    # Try using InvenTree's barcode plugin system if available
+                    # Try using InvenTree's barcode plugin system
                     try:
                         from plugin.barcode import barcode_plugins_scan
                         scan_result = barcode_plugins_scan(barcode)
@@ -82,7 +89,7 @@ class BarcodeScanView(APIView):
                             if stock_item_id:
                                 stock_item = StockItem.objects.get(pk=stock_item_id)
                                 part = stock_item.part
-                    except ImportError:
+                    except (ImportError, AttributeError):
                         pass
             
             if not part:
