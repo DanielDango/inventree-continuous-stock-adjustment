@@ -23,7 +23,8 @@ class BarcodeScanView(APIView):
         from company.models import SupplierPart
         from part.models import Part
         from stock.models import StockItem
-        from django.db.models import Q
+        from InvenTree.helpers import str2bool
+        from common.models import InvenTreeSetting
 
         # Validate input
         request_serializer = self.serializer_class(data=request.data)
@@ -40,37 +41,28 @@ class BarcodeScanView(APIView):
         quantity = request_serializer.validated_data.get('quantity')
 
         try:
-            # Use direct database queries to find barcode matches
-            # This avoids relying on plugin APIs that may not be available
+            # Use InvenTree's barcode model to scan
+            # Import here to avoid circular imports
+            from InvenTree.models import InvenTreeBarcodeMixin
+            
+            # Scan for matching barcode - checks all models that have barcodes
             part = None
+            stock_item = None
             
-            # Try to find a Part with matching barcode
-            # Check both barcode_data and barcode_hash fields (common in InvenTree)
-            part_query = Q()
-            if hasattr(Part, 'barcode_data'):
-                part_query |= Q(barcode_data=barcode)
-            if hasattr(Part, 'barcode_hash'):
-                part_query |= Q(barcode_hash=barcode)
-            if hasattr(Part, 'barcode'):
-                part_query |= Q(barcode=barcode)
-                
-            if part_query:
-                part = Part.objects.filter(part_query).first()
+            # Try Part first
+            try:
+                part = Part.objects.get(barcode=barcode)
+            except (Part.DoesNotExist, AttributeError):
+                pass
             
-            # If no part found, try to find a StockItem with matching barcode
+            # If no part, try StockItem
             if not part:
-                stock_query = Q()
-                if hasattr(StockItem, 'barcode_data'):
-                    stock_query |= Q(barcode_data=barcode)
-                if hasattr(StockItem, 'barcode_hash'):
-                    stock_query |= Q(barcode_hash=barcode)
-                if hasattr(StockItem, 'barcode'):
-                    stock_query |= Q(barcode=barcode)
-                    
-                if stock_query:
-                    stock_item = StockItem.objects.filter(stock_query).first()
+                try:
+                    stock_item = StockItem.objects.get(barcode=barcode)
                     if stock_item:
                         part = stock_item.part
+                except (StockItem.DoesNotExist, AttributeError):
+                    pass
             
             if not part:
                 # Scan succeeded but couldn't extract a valid part
