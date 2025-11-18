@@ -4,116 +4,104 @@ A powerful InvenTree plugin that enables quick and intuitive stock adjustments t
 
 ## Features
 
-- **📱 Dashboard Widget**: Integrated barcode scanner in the InvenTree dashboard for quick stock removal
-- **🔄 Automatic Quantity Detection**: Automatically determines removal quantity based on supplier part package sizes
-- **📊 Real-time Feedback**: Instant notifications showing removed quantities and remaining stock
-- **📝 Scan History**: Keeps track of recent scans with success/failure status
-- **🎯 Bulk Actions**: Custom "Remove Package" action for stock items in the InvenTree interface
-- **🧭 Easy Navigation**: Quick access navigation menu item for stock removal
-- **🔌 RESTful API**: Programmatic access via API endpoints for integration with other systems
+- **📱 Dedicated Page View**: Standalone stock removal page accessible via navigation menu for optimal scanning workflow
+- **📊 Dashboard Widget**: Quick access barcode scanner widget on the InvenTree dashboard
+- **🔄 Automatic Quantity Detection**: Smart removal quantities based on supplier part package sizes
+- **📝 Scan History**: Real-time tracking of recent scans with success/failure status
+- **🎯 Bulk Actions**: Custom "Remove Package" action for stock items in the interface
+- **🔌 RESTful API**: Programmatic access for system integration
 
 ## Prerequisites
 
-- **InvenTree**: Version 0.18.0 or later (recommended)
-- **Python**: 3.9 or higher
-- **Barcode Scanner**: Hardware or software barcode scanner (optional but recommended)
-- **Permissions**: User must be authenticated and have stock management permissions
+- InvenTree 0.18.0 or later (recommended)
+- Python 3.9 or higher
+- Authenticated user with stock management permissions (`Stock.change` and `Stock.delete`)
+- Barcode scanner (optional but recommended for best experience)
 
 ## Installation
 
-### Option 1: Manual Installation via pip
+**Note:** All commands must be run within the InvenTree virtual environment.
 
-Install the plugin package directly:
+### Via pip (Recommended)
 
 ```bash
-# Install the plugin package
 pip install inventree-continouous-stock-adjustment
-
-# Restart your InvenTree instance
 ```
 
-### Option 2: Development Installation
+Then restart your InvenTree instance.
 
-For development or testing:
+### From Source
 
 ```bash
-# Clone the repository
 git clone https://github.com/DanielDango/inventree-continuous-stock-adjustment.git
 cd inventree-continuous-stock-adjustment
-
-# Install Python dependencies
 pip install -U wheel setuptools
-
-# Build the plugin
 python -m build
-
-# Install the built package
 pip install dist/inventree_continouous_stock_adjustment-*.whl
 ```
 
-*Note: You must be operating within the InvenTree virtual environment!*
-
 ## Configuration
 
-### Enabling the Plugin
+### Enable the Plugin
 
-1. Navigate to **Settings** → **Plugin Settings** in InvenTree
-2. Find **Continouous Stock Adjustment** in the plugin list
-3. Toggle the **Active** switch to enable the plugin
-4. The plugin requires no additional settings to function
+1. Go to **Settings** → **Plugin Settings**
+2. Find **Continouous Stock Adjustment** and toggle **Active**
+3. No additional settings required
 
-### Barcode Configuration
+### Barcode Setup
 
-The plugin works with InvenTree's built-in barcode system:
+The plugin uses InvenTree's built-in barcode system. Ensure parts have barcodes assigned via the part detail page or barcode scanning interface.
 
-1. Ensure your parts have barcodes assigned in InvenTree
-2. Barcodes can be assigned to parts through the part detail page or via barcode scanning
-3. The plugin will automatically detect and use these barcodes during scanning
+### Required Permissions
 
-### User Permissions
-
-Users must have the following permissions to use this plugin:
-- **Authenticated** - Must be logged in
-- **Stock.change** - Permission to modify stock items
-- **Stock.delete** - Permission to remove stock
+Users need these permissions:
+- **Stock.change** - Modify stock items
+- **Stock.delete** - Remove stock
 
 ## Usage
 
-### Dashboard Widget: Quick Stock Removal
+The plugin provides three ways to remove stock via barcode scanning:
 
-The primary way to use this plugin is through the dashboard widget:
+### 1. Standalone Page View (Recommended)
 
-1. **Access the Dashboard**: Navigate to your InvenTree home dashboard
-2. **Locate the Widget**: Find the "Quick Stock Removal" widget
-3. **Scan or Enter Barcode**: 
-   - Use a barcode scanner (recommended for speed)
-   - Or manually type the barcode and press Enter
-4. **Automatic Processing**: The plugin will:
-   - Identify the part associated with the barcode
-   - Determine the removal quantity (from supplier part package size, or default to 1)
-   - Remove stock from available stock items
-   - Display success message with removed quantity and remaining stock
-5. **View History**: Recent scans are displayed below the input with timestamps
+Access the dedicated stock removal page via the navigation menu or directly at:
+**`/app/plugin/continouous-stock-adjustment/stock-removal/`**
+
+1. **Navigate**: Click **Stock Removal** in the InvenTree navigation menu (or visit the URL directly)
+2. **Scan or Enter Barcode**: Use a barcode scanner or manually type the barcode
+3. **Press Enter or Click Button**: The system automatically processes the barcode
+4. **View Results**: Success/failure notifications appear with quantity and remaining stock details
+5. **Check History**: Recent scans are displayed below with timestamps
+
+This dedicated page provides the best user experience for continuous barcode scanning operations.
+
+### 2. Dashboard Widget
+
+Quick access from the InvenTree home dashboard:
+
+1. **Access Dashboard**: Navigate to your InvenTree home page
+2. **Find Widget**: Locate the "Quick Stock Removal" widget
+3. **Scan Barcode**: Enter or scan a barcode and press Enter
+4. **View History**: Recent scans appear below the input field
+
+### 3. Stock Item Actions
+
+Remove packages directly from stock item views:
+
+1. Navigate to **Stock** → **Stock Items**
+2. Select one or more stock items
+3. Click **Actions** dropdown → **Remove Package**
+4. The plugin removes one package quantity from each selected item
 
 **Example Workflow:**
 ```
 1. Scan barcode "ABC123"
-2. Plugin identifies Part: "Resistor 10kΩ" 
+2. System identifies Part: "Resistor 10kΩ" 
 3. Detects package quantity: 100 pieces from supplier data
 4. Removes 100 pieces from stock
 5. Shows: "Successfully removed 100 pieces from stock"
 6. Displays remaining stock: 500 pieces
 ```
-
-### Stock Item Actions
-
-Remove packages directly from the stock item view:
-
-1. Navigate to **Stock** → **Stock Items**
-2. Select one or more stock items
-3. Click the **Actions** dropdown
-4. Select **Remove Package**
-5. The plugin removes one package quantity (based on supplier part data) from each selected item
 
 
 
@@ -219,87 +207,24 @@ curl -X POST http://your-inventree-instance.com/plugin/continouous-stock-adjustm
 
 ## How It Works
 
-### Barcode Scanning Process
-
-1. **Barcode Input**: User scans or enters a barcode
-2. **Barcode Resolution**: Plugin uses InvenTree's barcode scanning system to identify the associated part
+1. **Barcode Scanning**: User scans or enters a barcode
+2. **Part Identification**: Plugin uses InvenTree's barcode system to identify the part
 3. **Quantity Determination**:
-   - If quantity is specified in the request, uses that value
-   - Otherwise, attempts to find supplier part with package quantity
-   - Falls back to removing 1 unit if no supplier data exists
-4. **Stock Removal**:
-   - Finds stock items for the part with available quantity
-   - Removes stock in order by stock item ID
-   - Handles partial removals across multiple stock items if needed
-5. **Response**: Returns success/failure with detailed information
-
-### Package Quantity Detection
-
-The plugin intelligently determines removal quantities:
-
-- **Supplier Parts**: Checks for `pack_quantity_native` field
-- **Example**: If a supplier sells resistors in packs of 100, scanning once removes 100 pieces
-- **Fallback**: If no supplier data exists, defaults to 1 unit
-
-### Stock Item Selection
-
-When removing stock:
-- Prioritizes stock items by ID (oldest first)
-- Removes from the first item with sufficient quantity
-- If insufficient, removes all from first item and continues to next
-- Continues until full quantity is removed or stock is exhausted
+   - Uses API-specified quantity if provided
+   - Otherwise, reads supplier part `pack_quantity_native` field
+   - Defaults to 1 unit if no supplier data exists
+4. **Stock Removal**: Removes stock from available items (oldest first by ID), handling partial removals across multiple items if needed
+5. **Feedback**: Returns success/failure with quantity and remaining stock details
 
 ## Troubleshooting
 
-### Barcode Not Recognized
-
-**Problem**: Scanning a barcode shows "Barcode not found"
-
-**Solutions**:
-- Verify the barcode is assigned to a part in InvenTree
-- Check that the barcode format matches InvenTree's expected format
-- Ensure the barcode scanner is properly configured
-- Test by manually entering the barcode value
-
-### No Stock Available
-
-**Problem**: "No stock available for part" error
-
-**Solutions**:
-- Verify stock items exist for the part
-- Check that stock items have quantity > 0
-- Ensure stock items are not allocated or on hold
-- Review stock location and availability
-
-### Permission Denied
-
-**Problem**: API returns 403 Forbidden
-
-**Solutions**:
-- Verify user is authenticated
-- Check user has stock management permissions
-- Ensure API token is valid and not expired
-- Confirm plugin is activated in settings
-
-### Package Quantity Not Detected
-
-**Problem**: Always removes 1 unit instead of package quantity
-
-**Solutions**:
-- Verify supplier parts are configured for the part
-- Check that `pack_quantity_native` field is set in supplier part
-- Ensure supplier part is linked to the correct part
-- Consider specifying quantity explicitly in API requests
-
-### Dashboard Widget Not Visible
-
-**Problem**: Widget doesn't appear on dashboard
-
-**Solutions**:
-- Verify plugin is activated in plugin settings
-- Check user is authenticated
-- Refresh the page or clear browser cache
-- Check browser console for JavaScript errors
+| Issue | Solution |
+|-------|----------|
+| **Barcode Not Recognized** | Verify barcode is assigned to a part in InvenTree; check barcode format matches InvenTree's expectations |
+| **No Stock Available** | Ensure stock items exist with quantity > 0 and are not allocated |
+| **Permission Denied (403)** | Verify user authentication and stock management permissions; confirm plugin is active |
+| **Removing 1 Instead of Package Qty** | Check supplier part configuration has `pack_quantity_native` set; consider specifying quantity in API requests |
+| **Page/Widget Not Visible** | Confirm plugin is active, user is authenticated, and refresh browser cache |
 
 ## Development
 
