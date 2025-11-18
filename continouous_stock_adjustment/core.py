@@ -41,13 +41,11 @@ class ContinouousStockAdjustment(ActionMixin, AppMixin, NavigationMixin, Setting
     def setup_urls(self):
         """Configure custom URL endpoints for this plugin."""
         from django.urls import path
-        from .views import BarcodeScanView, StockRemovalPageView
+        from .views import BarcodeScanView
 
         return [
             # Barcode scanning endpoint for stock removal
             path('scan/', BarcodeScanView.as_view(), name='barcode-scan'),
-            # Main stock removal page
-            path('', StockRemovalPageView.as_view(), name='stock-removal-page'),
         ]
 
     # User interface elements (from UserInterfaceMixin)
@@ -175,7 +173,7 @@ class ContinouousStockAdjustment(ActionMixin, AppMixin, NavigationMixin, Setting
             {
                 'name': 'Stock Removal',
                 'description': 'Quick barcode stock removal',
-                'link': '/plugin/continouous-stock-adjustment/',
+                'link': '/app/plugin/continouous-stock-adjustment/stock-removal/',
                 'icon': 'ti:barcode:outline',
             }
         ]
