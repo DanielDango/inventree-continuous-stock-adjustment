@@ -43,26 +43,34 @@ class BarcodeScanView(APIView):
             # This handles all barcode types through the centralized barcode API
             from plugin.barcode import barcode_plugins_scan
             
-            part = None
-            stock_item = None
-            
             # Scan the barcode using InvenTree's barcode plugin system
             scan_result = barcode_plugins_scan(barcode)
             
-            if scan_result:
-                # Check if it's a Part barcode
-                if 'part' in scan_result:
-                    part_id = scan_result['part'].get('pk')
-                    if part_id:
-                        part = Part.objects.get(pk=part_id)
-                # Check if it's a StockItem barcode
-                elif 'stockitem' in scan_result:
-                    stock_item_id = scan_result['stockitem'].get('pk')
-                    if stock_item_id:
-                        stock_item = StockItem.objects.get(pk=stock_item_id)
-                        part = stock_item.part
+            # Handle scan result and extract part
+            part = None
+            if not scan_result:
+                # Barcode not recognized by any plugin
+                response_data = {
+                    'success': False,
+                    'message': 'Barcode not found or does not match a part'
+                }
+                response_serializer = BarcodeScanResponseSerializer(data=response_data)
+                response_serializer.is_valid()
+                return Response(response_serializer.data, status=404)
+            elif 'part' in scan_result:
+                # Direct part barcode
+                part_id = scan_result['part'].get('pk')
+                if part_id:
+                    part = Part.objects.get(pk=part_id)
+            elif 'stockitem' in scan_result:
+                # Stock item barcode - get the part from the stock item
+                stock_item_id = scan_result['stockitem'].get('pk')
+                if stock_item_id:
+                    stock_item = StockItem.objects.get(pk=stock_item_id)
+                    part = stock_item.part
             
             if not part:
+                # Scan succeeded but couldn't extract a valid part
                 response_data = {
                     'success': False,
                     'message': 'Barcode not found or does not match a part'
