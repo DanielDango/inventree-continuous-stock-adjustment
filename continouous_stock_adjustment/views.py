@@ -23,6 +23,7 @@ class BarcodeScanView(APIView):
         from company.models import SupplierPart
         from part.models import Part
         from stock.models import StockItem
+        from plugin.registry import registry
 
         # Validate input
         request_serializer = self.serializer_class(data=request.data)
@@ -39,12 +40,9 @@ class BarcodeScanView(APIView):
         quantity = request_serializer.validated_data.get('quantity')
 
         try:
-            # Use InvenTree's barcode plugin system as the primary method
-            # This handles all barcode types through the centralized barcode API
-            from plugin.barcode import barcode_plugins_scan
-            
-            # Scan the barcode using InvenTree's barcode plugin system
-            scan_result = barcode_plugins_scan(barcode)
+            # Use InvenTree's plugin registry to scan the barcode
+            # This uses the proper plugin API instead of direct model queries
+            scan_result = registry.scan_barcode(barcode)
             
             # Handle scan result and extract part
             part = None
