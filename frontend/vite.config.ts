@@ -49,10 +49,7 @@ export default defineConfig({
     rollupOptions: {
       preserveEntrySignatures: "exports-only",
       input: [
-        './src/Panel.tsx',
         './src/Dashboard.tsx',
-        './src/Settings.tsx',
-        './src/StockRemovalPage.tsx',
       ],
       output: {
         dir: '../continouous_stock_adjustment/static',

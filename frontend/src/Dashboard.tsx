@@ -3,15 +3,7 @@ import {
   checkPluginVersion,
   type InvenTreePluginContext
 } from '@inventreedb/ui';
-import {
-  Anchor,
-  Button,
-  Paper,
-  Stack,
-  Text,
-  TextInput,
-  Title
-} from '@mantine/core';
+import { Button, Paper, Stack, Text, TextInput, Title } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useCallback, useState } from 'react';
 
@@ -109,16 +101,9 @@ function ContinouousStockAdjustmentDashboardItem({
     [handleScan, isScanning]
   );
 
-  const stockRemovalUrl =
-    '/app/plugin/continouous-stock-adjustment/stock-removal/';
-
   return (
     <Stack gap='md'>
-      <Title order={4}>
-        <Anchor href={stockRemovalUrl} underline='hover'>
-          Quick Stock Removal
-        </Anchor>
-      </Title>
+      <Title order={4}>Quick Stock Removal</Title>
       <Text size='sm' c='dimmed'>
         Scan or enter a barcode to remove stock
       </Text>
