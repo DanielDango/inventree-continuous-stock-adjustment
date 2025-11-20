@@ -162,11 +162,8 @@ function ContinouousStockAdjustmentDashboardItem({
             message: result.message,
             color: 'green'
           });
-          setBarcode('');
           setLastScannedBarcode(barcodeValue);
           setLastScanTime(now);
-          // Refocus input for continuous scanning
-          setTimeout(() => barcodeInputRef.current?.focus(), 100);
         } else {
           notifications.show({
             title: 'Error',
@@ -176,6 +173,11 @@ function ContinouousStockAdjustmentDashboardItem({
           setLastScannedBarcode(null);
           setLastScanTime(0);
         }
+
+        // Clear barcode input regardless of result
+        setBarcode('');
+        // Refocus input for continuous scanning
+        setTimeout(() => barcodeInputRef.current?.focus(), 100);
       } catch (error: any) {
         const errorMessage =
           error?.response?.data?.message || 'Failed to process barcode';
@@ -195,6 +197,9 @@ function ContinouousStockAdjustmentDashboardItem({
         ]);
         setLastScannedBarcode(null);
         setLastScanTime(0);
+
+        // Clear barcode input even on exception
+        setBarcode('');
       } finally {
         setIsScanning(false);
       }
