@@ -3,9 +3,9 @@ import {
   checkPluginVersion,
   type InvenTreePluginContext
 } from '@inventreedb/ui';
-import { Button, Paper, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Button, Paper, Stack, Text, TextInput, Title, Modal, Group } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 
 interface ScanResult {
   success: boolean;
@@ -14,7 +14,15 @@ interface ScanResult {
   part_name?: string;
   quantity_removed?: number;
   remaining_stock?: number;
+  confirmation_required?: boolean;
+  quantity_to_remove?: number;
   timestamp: Date;
+}
+
+interface PendingConfirmation {
+  barcode: string;
+  partName: string;
+  quantity: number;
 }
 
 /**
@@ -30,29 +38,96 @@ function ContinouousStockAdjustmentDashboardItem({
   const [barcode, setBarcode] = useState<string>('');
   const [scanHistory, setScanHistory] = useState<ScanResult[]>([]);
   const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [confirmationThreshold, setConfirmationThreshold] = useState<number>(2);
+  const [defaultQuantity, setDefaultQuantity] = useState<number>(1);
+  const [rescanTimeout, setRescanTimeout] = useState<number>(3);
+  const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null);
+  const [lastScannedBarcode, setLastScannedBarcode] = useState<string | null>(null);
+  const [lastScanTime, setLastScanTime] = useState<number>(0);
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
 
-  const handleScan = useCallback(async () => {
-    if (!barcode.trim()) {
-      notifications.show({
-        title: 'Error',
-        message: 'Please enter a barcode',
-        color: 'red'
-      });
-      return;
-    }
+  // Fetch plugin settings on mount
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await context.api.get('/plugin/continouous-stock-adjustment/settings/');
+        if (response.data?.confirmation_threshold) {
+          setConfirmationThreshold(response.data.confirmation_threshold);
+        }
+        if (response.data?.default_quantity) {
+          setDefaultQuantity(response.data.default_quantity);
+        }
+        if (response.data?.rescan_timeout) {
+          setRescanTimeout(response.data.rescan_timeout);
+        }
+      } catch (error) {
+        console.error('Failed to fetch plugin settings:', error);
+      }
+    };
 
+    fetchSettings();
+  }, [context.api]);
+
+  // Ensure the barcode input is focused when component mounts and when modal closes
+  useEffect(() => {
+    // Focus immediately on mount
+    barcodeInputRef.current?.focus();
+
+    // Also set up a focus watcher to refocus if focus is lost when no modal is open
+    const focusInterval = setInterval(() => {
+      if (!pendingConfirmation && !isScanning && document.activeElement !== barcodeInputRef.current) {
+        barcodeInputRef.current?.focus();
+      }
+    }, 500);
+
+    return () => clearInterval(focusInterval);
+  }, [pendingConfirmation, isScanning]);
+
+  const performScan = useCallback(async (barcodeValue: string, confirmed: boolean = false, overrideQuantity?: number) => {
     setIsScanning(true);
 
     try {
       const url = `/plugin/continouous-stock-adjustment/scan/`;
-      const response = await context.api.post(url, {
-        barcode: barcode.trim()
-      });
+      const requestData: any = {
+        barcode: barcodeValue.trim(),
+        confirmed: confirmed
+      };
+
+      if (overrideQuantity !== undefined) {
+        requestData.quantity = overrideQuantity;
+      }
+
+      const response = await context.api.post(url, requestData);
 
       const result: ScanResult = {
         ...response.data,
         timestamp: new Date()
       };
+
+      const now = Date.now();
+      const timeSinceLastScan = now - lastScanTime;
+      const isSameBarcodeRecent = barcodeValue === lastScannedBarcode && timeSinceLastScan < (rescanTimeout * 1000);
+
+      // Check if confirmation is required
+      if (result.confirmation_required && !confirmed) {
+        // If scanning the same barcode again within timeout window, use default quantity
+        if (isSameBarcodeRecent) {
+          // Re-scan detected, remove default quantity without confirmation
+          setLastScanTime(now);
+          await performScan(barcodeValue, true, defaultQuantity);
+          return;
+        }
+
+        setPendingConfirmation({
+          barcode: barcodeValue,
+          partName: result.part_name || 'Unknown Part',
+          quantity: result.quantity_to_remove || 0
+        });
+        setLastScannedBarcode(barcodeValue);
+        setLastScanTime(now);
+        setIsScanning(false);
+        return;
+      }
 
       setScanHistory((prev) => [result, ...prev.slice(0, 9)]);
 
@@ -63,12 +138,18 @@ function ContinouousStockAdjustmentDashboardItem({
           color: 'green'
         });
         setBarcode('');
+        setLastScannedBarcode(barcodeValue);
+        setLastScanTime(now);
+        // Refocus input for continuous scanning
+        setTimeout(() => barcodeInputRef.current?.focus(), 100);
       } else {
         notifications.show({
           title: 'Error',
           message: result.message,
           color: 'red'
         });
+        setLastScannedBarcode(null);
+        setLastScanTime(0);
       }
     } catch (error: any) {
       const errorMessage =
@@ -87,18 +168,76 @@ function ContinouousStockAdjustmentDashboardItem({
         },
         ...prev.slice(0, 9)
       ]);
+      setLastScannedBarcode(null);
+      setLastScanTime(0);
     } finally {
       setIsScanning(false);
     }
-  }, [barcode, context.api]);
+  }, [context.api, lastScannedBarcode, lastScanTime, defaultQuantity, rescanTimeout]);
+
+  const handleScan = useCallback(async () => {
+    if (!barcode.trim()) {
+      notifications.show({
+        title: 'Error',
+        message: 'Please enter a barcode',
+        color: 'red'
+      });
+      return;
+    }
+
+    await performScan(barcode.trim(), false);
+  }, [barcode, performScan]);
+
+  const handleConfirm = useCallback(async () => {
+    if (pendingConfirmation) {
+      setPendingConfirmation(null);
+      await performScan(pendingConfirmation.barcode, true);
+      setBarcode('');
+      // Refocus input after confirmation
+      setTimeout(() => barcodeInputRef.current?.focus(), 100);
+    }
+  }, [pendingConfirmation, performScan]);
+
+  const handleRemoveDefault = useCallback(async () => {
+    if (pendingConfirmation) {
+      setPendingConfirmation(null);
+      await performScan(pendingConfirmation.barcode, true, defaultQuantity);
+      setBarcode('');
+      // Refocus input after default removal
+      setTimeout(() => barcodeInputRef.current?.focus(), 100);
+    }
+  }, [pendingConfirmation, performScan, defaultQuantity]);
+
+  const handleCancelConfirmation = useCallback(() => {
+    setPendingConfirmation(null);
+    setLastScannedBarcode(null);
+    setLastScanTime(0);
+    notifications.show({
+      title: 'Cancelled',
+      message: 'Stock removal cancelled',
+      color: 'yellow'
+    });
+    // Refocus input after cancellation
+    setTimeout(() => barcodeInputRef.current?.focus(), 100);
+  }, []);
 
   const handleKeyPress = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
       if (event.key === 'Enter' && !isScanning) {
-        handleScan();
+        // If modal is open and user scans the same barcode, trigger default removal
+        if (pendingConfirmation && barcode.trim() === pendingConfirmation.barcode) {
+          event.preventDefault();
+          handleRemoveDefault();
+          return;
+        }
+
+        // Normal scan handling
+        if (!pendingConfirmation) {
+          handleScan();
+        }
       }
     },
-    [handleScan, isScanning]
+    [handleScan, isScanning, pendingConfirmation, barcode, handleRemoveDefault]
   );
 
   return (
@@ -109,6 +248,7 @@ function ContinouousStockAdjustmentDashboardItem({
       </Text>
 
       <TextInput
+        ref={barcodeInputRef}
         label='Barcode'
         placeholder='Enter or scan barcode...'
         value={barcode}
@@ -116,15 +256,51 @@ function ContinouousStockAdjustmentDashboardItem({
         onKeyPress={handleKeyPress}
         disabled={isScanning}
         autoFocus
+        style={pendingConfirmation ? { visibility: 'hidden', position: 'absolute' } : undefined}
       />
 
       <Button
         onClick={handleScan}
         loading={isScanning}
         disabled={!barcode.trim()}
+        style={pendingConfirmation ? { display: 'none' } : undefined}
       >
         Remove Stock
       </Button>
+
+      {/* Confirmation Modal */}
+      <Modal
+        opened={pendingConfirmation !== null}
+        onClose={handleCancelConfirmation}
+        title="Confirm Large Quantity Removal"
+        centered
+      >
+        <Stack gap='md'>
+          <Text>
+            You are about to remove <strong>{pendingConfirmation?.quantity}</strong> units
+            of <strong>{pendingConfirmation?.partName}</strong>.
+          </Text>
+          <Text size='sm' c='dimmed'>
+            This exceeds the confirmation threshold of {confirmationThreshold} units.
+          </Text>
+          <Text size='sm' c='blue'>
+            Tip: Scan the same barcode again to quickly remove {defaultQuantity} unit(s).
+          </Text>
+          <Group justify="space-between" gap='sm'>
+            <Button variant="default" onClick={handleCancelConfirmation}>
+              Cancel
+            </Button>
+            <Group gap='sm'>
+              <Button color="blue" onClick={handleRemoveDefault}>
+                Remove {defaultQuantity} unit(s)
+              </Button>
+              <Button color="red" onClick={handleConfirm}>
+                Remove {pendingConfirmation?.quantity} unit(s)
+              </Button>
+            </Group>
+          </Group>
+        </Stack>
+      </Modal>
 
       {scanHistory.length > 0 && (
         <Stack gap='xs'>

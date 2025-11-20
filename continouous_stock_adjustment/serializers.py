@@ -11,6 +11,7 @@ class BarcodeScanRequestSerializer(serializers.Serializer):
         fields = [
             'barcode',
             'quantity',
+            'confirmed',
         ]
 
     barcode = serializers.CharField(
@@ -28,6 +29,13 @@ class BarcodeScanRequestSerializer(serializers.Serializer):
         help_text="Optional quantity to remove. If not provided, removes one package based on supplier part data."
     )
 
+    confirmed = serializers.BooleanField(
+        required=False,
+        default=False,
+        label="Confirmed",
+        help_text="Whether the user has confirmed the action for large quantity removals."
+    )
+
 
 class BarcodeScanResponseSerializer(serializers.Serializer):
     """Serializer for barcode scan responses."""
@@ -41,6 +49,8 @@ class BarcodeScanResponseSerializer(serializers.Serializer):
             'part_name',
             'quantity_removed',
             'remaining_stock',
+            'confirmation_required',
+            'quantity_to_remove',
         ]
 
     success = serializers.BooleanField(
@@ -84,3 +94,20 @@ class BarcodeScanResponseSerializer(serializers.Serializer):
         label="Remaining Stock",
         help_text="The total remaining stock quantity for this part."
     )
+
+    confirmation_required = serializers.BooleanField(
+        required=False,
+        default=False,
+        label="Confirmation Required",
+        help_text="Whether confirmation is required before proceeding."
+    )
+
+    quantity_to_remove = serializers.DecimalField(
+        required=False,
+        allow_null=True,
+        max_digits=15,
+        decimal_places=5,
+        label="Quantity to Remove",
+        help_text="The quantity that will be removed if confirmed."
+    )
+

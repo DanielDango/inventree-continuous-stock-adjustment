@@ -6,6 +6,11 @@ from plugin.mixins import SettingsMixin, UrlsMixin, UserInterfaceMixin
 
 from . import PLUGIN_VERSION
 
+# Default values for plugin settings
+DEFAULT_CONFIRMATION_THRESHOLD = 2.0
+DEFAULT_QUANTITY = 1.0
+DEFAULT_RESCAN_TIMEOUT = 3.0
+
 
 class ContinouousStockAdjustment(SettingsMixin, UrlsMixin, UserInterfaceMixin, InvenTreePlugin):
 
@@ -26,7 +31,24 @@ class ContinouousStockAdjustment(SettingsMixin, UrlsMixin, UserInterfaceMixin, I
     # Plugin settings (from SettingsMixin)
     # Ref: https://docs.inventree.org/en/latest/plugins/mixins/settings/
     SETTINGS = {
-        # Plugin settings can be defined here if needed in the future
+        'CONFIRMATION_THRESHOLD': {
+            'name': 'Confirmation Threshold',
+            'description': 'Require confirmation when removing more than this quantity at once',
+            'validator': float,
+            'default': DEFAULT_CONFIRMATION_THRESHOLD,
+        },
+        'DEFAULT_QUANTITY': {
+            'name': 'Default Quantity',
+            'description': 'Default quantity to remove when using the quick removal button in confirmation dialog',
+            'validator': float,
+            'default': DEFAULT_QUANTITY,
+        },
+        'RESCAN_TIMEOUT': {
+            'name': 'Re-scan Timeout',
+            'description': 'Time window (in seconds) for detecting re-scans of the same barcode',
+            'validator': float,
+            'default': DEFAULT_RESCAN_TIMEOUT,
+        },
     }
 
     # Custom URL endpoints (from UrlsMixin)
@@ -34,11 +56,13 @@ class ContinouousStockAdjustment(SettingsMixin, UrlsMixin, UserInterfaceMixin, I
     def setup_urls(self):
         """Configure custom URL endpoints for this plugin."""
         from django.urls import path
-        from .views import BarcodeScanView
+        from .views import BarcodeScanView, PluginSettingsView
 
         return [
             # Barcode scanning endpoint for stock removal
             path('scan/', BarcodeScanView.as_view(), name='barcode-scan'),
+            # Plugin settings endpoint
+            path('settings/', PluginSettingsView.as_view(), name='plugin-settings'),
         ]
 
     # User interface elements (from UserInterfaceMixin)

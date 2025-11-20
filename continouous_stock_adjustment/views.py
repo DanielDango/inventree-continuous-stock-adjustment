@@ -5,6 +5,41 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .serializers import BarcodeScanRequestSerializer, BarcodeScanResponseSerializer
+from .core import DEFAULT_CONFIRMATION_THRESHOLD, DEFAULT_QUANTITY, DEFAULT_RESCAN_TIMEOUT
+
+
+class PluginSettingsView(APIView):
+    """API view to retrieve plugin settings."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        """Return plugin settings."""
+        from plugin import registry
+
+        try:
+            plugin = registry.get_plugin('continouous-stock-adjustment')
+            if plugin:
+                confirmation_threshold = plugin.get_setting('CONFIRMATION_THRESHOLD', DEFAULT_CONFIRMATION_THRESHOLD)
+                default_quantity = plugin.get_setting('DEFAULT_QUANTITY', DEFAULT_QUANTITY)
+                rescan_timeout = plugin.get_setting('RESCAN_TIMEOUT', DEFAULT_RESCAN_TIMEOUT)
+                return Response({
+                    'confirmation_threshold': float(confirmation_threshold),
+                    'default_quantity': float(default_quantity),
+                    'rescan_timeout': float(rescan_timeout)
+                })
+            else:
+                return Response({
+                    'confirmation_threshold': DEFAULT_CONFIRMATION_THRESHOLD,
+                    'default_quantity': DEFAULT_QUANTITY,
+                    'rescan_timeout': DEFAULT_RESCAN_TIMEOUT
+                })
+        except Exception:
+            return Response({
+                'confirmation_threshold': DEFAULT_CONFIRMATION_THRESHOLD,
+                'default_quantity': DEFAULT_QUANTITY,
+                'rescan_timeout': DEFAULT_RESCAN_TIMEOUT
+            })
 
 
 class BarcodeScanView(APIView):
@@ -24,6 +59,7 @@ class BarcodeScanView(APIView):
         from company.models import SupplierPart
         from part.models import Part
         from stock.models import StockItem
+        from plugin import registry
 
         # Validate input
         request_serializer = self.serializer_class(data=request.data)
@@ -38,6 +74,7 @@ class BarcodeScanView(APIView):
 
         barcode = request_serializer.validated_data['barcode']
         quantity = request_serializer.validated_data.get('quantity')
+        confirmed = request_serializer.validated_data.get('confirmed', False)
 
         try:
             # Use InvenTree's barcode scanning helper to resolve the barcode
@@ -102,12 +139,36 @@ class BarcodeScanView(APIView):
                 # Try to get package quantity from supplier part
                 quantity = Decimal(1)  # Default to 1 if no supplier part data
                 
-                # Try to find supplier part with pack quantity
-                supplier_part = SupplierPart.objects.filter(part=part).first()
-                if supplier_part and supplier_part.pack_quantity_native:
-                    quantity = Decimal(supplier_part.pack_quantity_native)
+                # Find all supplier parts with pack quantity and select the smallest
+                supplier_parts = SupplierPart.objects.filter(
+                    part=part,
+                    pack_quantity_native__isnull=False
+                ).order_by('pack_quantity_native')
+
+                if supplier_parts.exists():
+                    # Get the smallest package size
+                    smallest_supplier_part = supplier_parts.first()
+                    quantity = Decimal(smallest_supplier_part.pack_quantity_native)
 
             quantity = Decimal(str(quantity))
+
+            # Get plugin settings
+            plugin = registry.get_plugin('continouous-stock-adjustment')
+            confirmation_threshold = Decimal(str(plugin.get_setting('CONFIRMATION_THRESHOLD', DEFAULT_CONFIRMATION_THRESHOLD))) if plugin else Decimal(str(DEFAULT_CONFIRMATION_THRESHOLD))
+
+            # Check if confirmation is needed
+            if quantity > confirmation_threshold and not confirmed:
+                response_data = {
+                    'success': False,
+                    'confirmation_required': True,
+                    'message': f'Confirmation required to remove {float(quantity)} units',
+                    'part_id': part.pk,
+                    'part_name': part.name,
+                    'quantity_to_remove': float(quantity),
+                }
+                response_serializer = BarcodeScanResponseSerializer(data=response_data)
+                response_serializer.is_valid()
+                return Response(response_serializer.data, status=200)
 
             # Remove stock from available items
             quantity_removed = Decimal(0)
@@ -145,7 +206,7 @@ class BarcodeScanView(APIView):
 
             response_data = {
                 'success': True,
-                'message': f'Successfully removed {quantity_removed} units of {part.name}',
+                'message': f'Successfully removed {round(quantity_removed, 2)} units of {part.name}',
                 'part_id': part.pk,
                 'part_name': part.name,
                 'quantity_removed': float(quantity_removed),
@@ -159,6 +220,7 @@ class BarcodeScanView(APIView):
         except Exception as e:
             import traceback
             response_data = {
+                'success': False,
                 'message': f'Error processing barcode: {str(e)}\n{traceback.format_exc()}'
             }
             response_serializer = BarcodeScanResponseSerializer(data=response_data)
