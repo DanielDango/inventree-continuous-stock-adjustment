@@ -274,6 +274,7 @@ function ContinouousStockAdjustmentDashboardItem({
     setPendingConfirmation(null);
     setLastScannedBarcode(null);
     setLastScanTime(0);
+    setBarcode('');
     notifications.show({
       title: 'Cancelled',
       message: 'Stock removal cancelled',
