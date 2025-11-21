@@ -17,6 +17,28 @@ import {
 import { notifications } from '@mantine/notifications';
 import { useCallback, useState } from 'react';
 
+/**
+ * Format a number to 2 decimal places
+ * Removes .00 suffix for whole numbers
+ * Handles both number and string inputs
+ */
+function formatNumber(value: any): string {
+  if (value === undefined || value === null) {
+    return 'N/A';
+  }
+
+  // Convert string to number if needed
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+
+  // Check if it's a valid number
+  if (typeof numValue !== 'number' || isNaN(numValue)) {
+    return 'N/A';
+  }
+
+  const formatted = numValue.toFixed(2);
+  return formatted.endsWith('.00') ? formatted.slice(0, -3) : formatted;
+}
+
 interface ScanResult {
   success: boolean;
   message: string;
@@ -166,8 +188,8 @@ function StockRemovalPage({ context }: { context: InvenTreePluginContext }) {
                     )}
                     {result.quantity_removed !== undefined && (
                       <Text size='sm' c='dimmed'>
-                        Removed: {result.quantity_removed} | Remaining:{' '}
-                        {result.remaining_stock}
+                        Removed: {formatNumber(result.quantity_removed)} | Remaining:{' '}
+                        {formatNumber(result.remaining_stock)}
                       </Text>
                     )}
                     <Text size='xs' c='dimmed'>

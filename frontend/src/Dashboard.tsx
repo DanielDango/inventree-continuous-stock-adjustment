@@ -16,6 +16,24 @@ import {
 import { notifications } from '@mantine/notifications';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+/**
+ * Format a number to 2 decimal places
+ * Removes .00 suffix for whole numbers
+ * Handles both number and string inputs
+ */
+function formatNumber(value: any): string {
+
+  // Convert string to number if needed
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+
+  if (value === undefined || value === null || typeof numValue !== 'number' || isNaN(numValue)) {
+    return 'N/A';
+  }
+
+  const formatted = numValue.toFixed(2);
+  return formatted.endsWith('.00') ? formatted.slice(0, -3) : formatted;
+}
+
 interface ScanResult {
   success: boolean;
   message: string;
@@ -348,7 +366,7 @@ function ContinouousStockAdjustmentDashboardItem({
         <Stack gap='md'>
           <Text>
             You are about to remove{' '}
-            <strong>{pendingConfirmation?.quantity}</strong> units of{' '}
+            <strong>{formatNumber(pendingConfirmation?.quantity)}</strong> units of{' '}
             <strong>{pendingConfirmation?.partName}</strong>.
           </Text>
           <Text size='sm' c='dimmed'>
@@ -368,7 +386,7 @@ function ContinouousStockAdjustmentDashboardItem({
                 Remove {defaultQuantity} unit(s)
               </Button>
               <Button color='red' onClick={handleConfirm}>
-                Remove {pendingConfirmation?.quantity} unit(s)
+                Remove {formatNumber(pendingConfirmation?.quantity)} unit(s)
               </Button>
             </Group>
           </Group>
@@ -411,7 +429,7 @@ function ContinouousStockAdjustmentDashboardItem({
                   <td>
                     {result.quantity_removed !== undefined ? (
                       <Text size='xs' c='dimmed'>
-                        {result.quantity_removed}
+                        {formatNumber(result.quantity_removed)}
                       </Text>
                     ) : (
                       <Text size='xs' c='dimmed'>
