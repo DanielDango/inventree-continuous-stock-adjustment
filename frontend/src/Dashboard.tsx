@@ -87,18 +87,42 @@ function ContinouousStockAdjustmentDashboardItem({
     // Focus immediately on mount
     barcodeInputRef.current?.focus();
 
-    // Also set up a focus watcher to refocus if focus is lost when no modal is open
-    const focusInterval = setInterval(() => {
-      if (
-        !pendingConfirmation &&
-        !isScanning &&
-        document.activeElement !== barcodeInputRef.current
-      ) {
+    // Smart refocus: only refocus if user clicks on non-interactive elements
+    const handleDocumentClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+
+      // Don't refocus if modal is open or currently scanning
+      if (pendingConfirmation || isScanning) {
+        return;
+      }
+
+      // Check if the click target is an interactive element
+      const isInteractive =
+        target.tagName === 'INPUT' ||
+        target.tagName === 'BUTTON' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.tagName === 'A' ||
+        target.closest('button') !== null ||
+        target.closest('input') !== null ||
+        target.closest('textarea') !== null ||
+        target.closest('select') !== null ||
+        target.closest('a') !== null ||
+        target.closest('[role="button"]') !== null ||
+        target.closest('[role="textbox"]') !== null ||
+        target.closest('[contenteditable="true"]') !== null;
+
+      // Only refocus if clicking on non-interactive elements
+      if (!isInteractive) {
         barcodeInputRef.current?.focus();
       }
-    }, 500);
+    };
 
-    return () => clearInterval(focusInterval);
+    document.addEventListener('click', handleDocumentClick);
+
+    return () => {
+      document.removeEventListener('click', handleDocumentClick);
+    };
   }, [pendingConfirmation, isScanning]);
 
   const performScan = useCallback(
