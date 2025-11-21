@@ -7,8 +7,8 @@ import {
   Button,
   Group,
   Modal,
-  Paper,
   Stack,
+  Table,
   Text,
   TextInput,
   Title
@@ -380,30 +380,49 @@ function ContinouousStockAdjustmentDashboardItem({
           <Text size='sm' fw={500}>
             Recent Scans
           </Text>
-          {scanHistory.map((result, index) => (
-            <Paper key={index} p='xs' withBorder>
-              <Stack gap='xs'>
-                <Text size='xs' c={result.success ? 'green' : 'red'} fw={500}>
-                  {result.success ? '✓ Success' : '✗ Failed'}
-                </Text>
-                <Text size='xs'>{result.message}</Text>
-                {result.part_name && (
-                  <Text size='xs' c='dimmed'>
-                    Part: {result.part_name}
-                  </Text>
-                )}
-                {result.quantity_removed !== undefined && (
-                  <Text size='xs' c='dimmed'>
-                    Removed: {result.quantity_removed} | Remaining:{' '}
-                    {result.remaining_stock}
-                  </Text>
-                )}
-                <Text size='xs' c='dimmed'>
-                  {result.timestamp.toLocaleTimeString()}
-                </Text>
-              </Stack>
-            </Paper>
-          ))}
+          <Table>
+            <thead>
+              <tr>
+                <th style={{ width: '50%' }}>Message</th>
+                <th style={{ width: '25%' }}>Part</th>
+                <th style={{ width: '25%' }}>Quantity Removed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scanHistory.map((result, index) => (
+                <tr key={index}>
+                  <td>
+                    <Text size='xs' c={result.success ? 'green' : 'red'} fw={500}>
+                      {result.success ? '✓ Success' : '✗ Failed'}
+                    </Text>
+                    <Text size='xs'>{result.message}</Text>
+                  </td>
+                  <td>
+                    {result.part_name ? (
+                      <Text size='xs' c='dimmed'>
+                        {result.part_name}
+                      </Text>
+                    ) : (
+                      <Text size='xs' c='dimmed'>
+                        N/A
+                      </Text>
+                    )}
+                  </td>
+                  <td>
+                    {result.quantity_removed !== undefined ? (
+                      <Text size='xs' c='dimmed'>
+                        {result.quantity_removed}
+                      </Text>
+                    ) : (
+                      <Text size='xs' c='dimmed'>
+                        N/A
+                      </Text>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
         </Stack>
       )}
     </Stack>
