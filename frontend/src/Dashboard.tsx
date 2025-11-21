@@ -49,6 +49,7 @@ interface ScanResult {
 interface PendingConfirmation {
   barcode: string;
   partName: string;
+  partId?: number;
   quantity: number;
 }
 
@@ -199,6 +200,7 @@ function ContinouousStockAdjustmentDashboardItem({
           setPendingConfirmation({
             barcode: barcodeValue,
             partName: result.part_name || 'Unknown Part',
+            partId: result.part_id,
             quantity: result.quantity_to_remove || 0
           });
           setLastScannedBarcode(barcodeValue);
@@ -362,7 +364,19 @@ function ContinouousStockAdjustmentDashboardItem({
             <Text>
               You are about to remove{' '}
               <strong>{formatNumber(pendingConfirmation?.quantity)}</strong> units of{' '}
-              <strong>{pendingConfirmation?.partName}</strong>.
+              <strong>
+                {pendingConfirmation?.partId ? (
+                  <a
+                    href={`/part/${pendingConfirmation.partId}/`}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                  >
+                    {pendingConfirmation.partName}
+                  </a>
+                ) : (
+                  pendingConfirmation?.partName
+                )}
+              </strong>.
             </Text>
             <Text size='sm' c='dimmed'>
               This exceeds the confirmation threshold of {confirmationThreshold}{' '}
@@ -420,7 +434,17 @@ function ContinouousStockAdjustmentDashboardItem({
                   <td>
                     {result.part_name ? (
                       <Text size='xs' c='dimmed'>
-                        {result.part_name}
+                        {result.part_id ? (
+                          <a
+                            href={`/part/${result.part_id}/`}
+                            target='_blank'
+                            rel='noopener noreferrer'
+                          >
+                            {result.part_name}
+                          </a>
+                        ) : (
+                          result.part_name
+                        )}
                       </Text>
                     ) : (
                       <Text size='xs' c='dimmed'>
