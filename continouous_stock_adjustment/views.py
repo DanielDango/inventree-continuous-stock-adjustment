@@ -4,6 +4,7 @@ from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from stock.status_codes import StockHistoryCode
 from .serializers import BarcodeScanRequestSerializer, BarcodeScanResponseSerializer
 from .core import DEFAULT_CONFIRMATION_THRESHOLD, DEFAULT_QUANTITY, DEFAULT_RESCAN_TIMEOUT
 
@@ -58,7 +59,7 @@ class BarcodeScanView(APIView):
         from django.db import transaction
         from company.models import SupplierPart
         from part.models import Part
-        from stock.models import StockItem
+        from stock.models import StockItem, StockItemTracking
         from plugin import registry
 
         # Validate input
@@ -182,16 +183,60 @@ class BarcodeScanView(APIView):
                     available = item.quantity
                     to_remove = min(available, remaining_quantity)
 
-                    # Update quantity directly
-                    item.quantity -= to_remove
+                    # Store old quantity before update for tracking
+                    old_quantity = item.quantity
+                    new_quantity = old_quantity - to_remove
+
+                    # Update stock quantity
+                    item.quantity = new_quantity
                     item.save()
 
-                    # Add a simple note to the item
-                    if hasattr(item, 'notes') and item.notes:
-                        item.notes += f'\n[{request.user.username}] Removed {to_remove} via barcode scan: {barcode}'
-                    else:
-                        item.notes = f'[{request.user.username}] Removed {to_remove} via barcode scan: {barcode}'
-                    item.save()
+                    # Create tracking entry for transaction history
+                    try:
+                        StockItemTracking.objects.create(
+                            item=item,
+                            tracking_type=StockHistoryCode.STOCK_REMOVE,
+                            user=request.user,
+                            notes=f'Removed via barcode scan: {barcode}',
+                            deltas={
+                                'removed': float(to_remove),
+                                'quantity': float(new_quantity)
+                            }
+                        )
+                    except Exception as tracking_error:
+                        # If tracking fails for any reason, log it but don't fail the operation
+                        # This ensures stock removal still succeeds even if tracking fails
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f'Failed to create tracking entry for stock item {item.pk}: {tracking_error}')
+
+                        # Still try to create a minimal tracking entry without deltas
+                        try:
+                            StockItemTracking.objects.create(
+                                item=item,
+                                tracking_type=32,
+                                user=request.user,
+                                notes=f'Removed via barcode scan: {barcode}'
+                            )
+                        except Exception:
+                            # If even minimal tracking fails, continue with the operation
+                            pass
+
+                    # Check if stock item is now empty and should be deleted
+                    # InvenTree may have a setting to auto-delete empty stock items
+                    if new_quantity <= 0:
+                        try:
+                            # Check InvenTree's stock settings for auto-deletion
+                            from common.models import InvenTreeSetting
+                            delete_empty = InvenTreeSetting.get_setting('STOCK_DELETE_DEPLETED_DEFAULT', False)
+
+                            if delete_empty:
+                                item.delete()
+                        except Exception as delete_error:
+                            # If deletion check/execution fails, log but continue
+                            import logging
+                            logger = logging.getLogger(__name__)
+                            logger.warning(f'Failed to check/delete empty stock item {item.pk}: {delete_error}')
 
                     quantity_removed += to_remove
                     remaining_quantity -= to_remove
