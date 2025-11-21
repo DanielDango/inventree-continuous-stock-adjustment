@@ -75,6 +75,7 @@ function ContinouousStockAdjustmentDashboardItem({
   );
   const [lastScanTime, setLastScanTime] = useState<number>(0);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const defaultButtonRef = useRef<HTMLButtonElement>(null);
 
   // Fetch plugin settings on mount
   useEffect(() => {
@@ -142,6 +143,16 @@ function ContinouousStockAdjustmentDashboardItem({
       document.removeEventListener('click', handleDocumentClick);
     };
   }, [pendingConfirmation, isScanning]);
+
+  // Focus the default button when modal opens
+  useEffect(() => {
+    if (pendingConfirmation && defaultButtonRef.current) {
+      // Use a small timeout to ensure the modal is fully rendered
+      setTimeout(() => {
+        defaultButtonRef.current?.focus();
+      }, 100);
+    }
+  }, [pendingConfirmation]);
 
   const performScan = useCallback(
     async (
@@ -302,28 +313,6 @@ function ContinouousStockAdjustmentDashboardItem({
     setTimeout(() => barcodeInputRef.current?.focus(), 100);
   }, []);
 
-  const handleKeyPress = useCallback(
-    (event: React.KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === 'Enter' && !isScanning) {
-        // If modal is open and user scans the same barcode, trigger default removal
-        if (
-          pendingConfirmation &&
-          barcode.trim() === pendingConfirmation.barcode
-        ) {
-          event.preventDefault();
-          handleRemoveDefault();
-          return;
-        }
-
-        // Normal scan handling
-        if (!pendingConfirmation) {
-          handleScan();
-        }
-      }
-    },
-    [handleScan, isScanning, pendingConfirmation, barcode, handleRemoveDefault]
-  );
-
   return (
     <Stack gap='md'>
       <Title order={4}>Quick Stock Removal</Title>
@@ -337,9 +326,14 @@ function ContinouousStockAdjustmentDashboardItem({
         placeholder='Enter or scan barcode...'
         value={barcode}
         onChange={(e) => setBarcode(e.currentTarget.value)}
-        onKeyPress={handleKeyPress}
+        onKeyPress={(event) => {
+          if (event.key === 'Enter' && !isScanning && !pendingConfirmation) {
+            handleScan();
+          }
+        }}
         disabled={isScanning}
         autoFocus
+        tabIndex={pendingConfirmation ? -1 : 0}
         style={
           pendingConfirmation
             ? { visibility: 'hidden', position: 'absolute' }
@@ -363,34 +357,42 @@ function ContinouousStockAdjustmentDashboardItem({
         title='Confirm Large Quantity Removal'
         centered
       >
-        <Stack gap='md'>
-          <Text>
-            You are about to remove{' '}
-            <strong>{formatNumber(pendingConfirmation?.quantity)}</strong> units of{' '}
-            <strong>{pendingConfirmation?.partName}</strong>.
-          </Text>
-          <Text size='sm' c='dimmed'>
-            This exceeds the confirmation threshold of {confirmationThreshold}{' '}
-            units.
-          </Text>
-          <Text size='sm' c='blue'>
-            Tip: Scan the same barcode again to quickly remove {defaultQuantity}{' '}
-            unit(s).
-          </Text>
-          <Group justify='space-between' gap='sm'>
-            <Button variant='default' onClick={handleCancelConfirmation}>
-              Cancel
-            </Button>
-            <Group gap='sm'>
-              <Button color='blue' onClick={handleRemoveDefault}>
-                Remove {defaultQuantity} unit(s)
+        <form onSubmit={(e) => { e.preventDefault(); handleRemoveDefault(); }}>
+          <Stack gap='md'>
+            <Text>
+              You are about to remove{' '}
+              <strong>{formatNumber(pendingConfirmation?.quantity)}</strong> units of{' '}
+              <strong>{pendingConfirmation?.partName}</strong>.
+            </Text>
+            <Text size='sm' c='dimmed'>
+              This exceeds the confirmation threshold of {confirmationThreshold}{' '}
+              units.
+            </Text>
+            <Text size='sm' c='blue'>
+              Tip: Scan the same barcode again to quickly remove {defaultQuantity}{' '}
+              unit(s).
+            </Text>
+            <Group justify='space-between' gap='sm'>
+              <Button variant='default' onClick={handleCancelConfirmation} type='button'>
+                Cancel
               </Button>
-              <Button color='red' onClick={handleConfirm}>
-                Remove {formatNumber(pendingConfirmation?.quantity)} unit(s)
-              </Button>
+              <Group gap='sm'>
+                <Button
+                  color='blue'
+                  type='submit'
+                  ref={defaultButtonRef}
+                  data-autofocus
+                  autoFocus
+                >
+                  Remove {defaultQuantity} unit(s)
+                </Button>
+                <Button color='red' onClick={handleConfirm} type='button'>
+                  Remove {formatNumber(pendingConfirmation?.quantity)} unit(s)
+                </Button>
+              </Group>
             </Group>
-          </Group>
-        </Stack>
+          </Stack>
+        </form>
       </Modal>
 
       {scanHistory.length > 0 && (
