@@ -23,7 +23,7 @@ function formatNumber(value: any): string {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
 
   // Check if it's a valid number
-  if (typeof numValue !== 'number' || isNaN(numValue)) {
+  if (typeof numValue !== 'number' || Number.isNaN(numValue)) {
     return 'N/A';
   }
 
@@ -167,8 +167,8 @@ function ContinouousStockAdjustmentPanel({
                 )}
                 {result.quantity_removed !== undefined && (
                   <Text size='xs' c='dimmed'>
-                    Removed: {formatNumber(result.quantity_removed)} | Remaining:{' '}
-                    {formatNumber(result.remaining_stock)}
+                    Removed: {formatNumber(result.quantity_removed)} |
+                    Remaining: {formatNumber(result.remaining_stock)}
                   </Text>
                 )}
                 <Text size='xs' c='dimmed'>

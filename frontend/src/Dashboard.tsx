@@ -22,11 +22,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * Handles both number and string inputs
  */
 function formatNumber(value: any): string {
-
   // Convert string to number if needed
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
 
-  if (value === undefined || value === null || typeof numValue !== 'number' || isNaN(numValue)) {
+  if (
+    value === undefined ||
+    value === null ||
+    typeof numValue !== 'number' ||
+    Number.isNaN(numValue)
+  ) {
     return 'N/A';
   }
 
@@ -284,7 +288,11 @@ function ContinouousStockAdjustmentDashboardItem({
   const handleConfirm = useCallback(async () => {
     if (pendingConfirmation) {
       setPendingConfirmation(null);
-      await performScan(pendingConfirmation.barcode, true);
+      await performScan(
+        pendingConfirmation.barcode,
+        true,
+        pendingConfirmation.quantity
+      );
       setBarcode('');
       // Refocus input after confirmation
       setTimeout(() => barcodeInputRef.current?.focus(), 100);
@@ -359,11 +367,17 @@ function ContinouousStockAdjustmentDashboardItem({
         title='Confirm Large Quantity Removal'
         centered
       >
-        <form onSubmit={(e) => { e.preventDefault(); handleRemoveDefault(); }}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleRemoveDefault();
+          }}
+        >
           <Stack gap='md'>
             <Text>
               You are about to remove{' '}
-              <strong>{formatNumber(pendingConfirmation?.quantity)}</strong> units of{' '}
+              <strong>{formatNumber(pendingConfirmation?.quantity)}</strong>{' '}
+              units of{' '}
               <strong>
                 {pendingConfirmation?.partId ? (
                   <a
@@ -376,18 +390,23 @@ function ContinouousStockAdjustmentDashboardItem({
                 ) : (
                   pendingConfirmation?.partName
                 )}
-              </strong>.
+              </strong>
+              .
             </Text>
             <Text size='sm' c='dimmed'>
               This exceeds the confirmation threshold of {confirmationThreshold}{' '}
               units.
             </Text>
             <Text size='sm' c='blue'>
-              Tip: Scan the same barcode again to quickly remove {defaultQuantity}{' '}
-              unit(s).
+              Tip: Scan the same barcode again to quickly remove{' '}
+              {defaultQuantity} unit(s).
             </Text>
             <Group justify='space-between' gap='sm'>
-              <Button variant='default' onClick={handleCancelConfirmation} type='button'>
+              <Button
+                variant='default'
+                onClick={handleCancelConfirmation}
+                type='button'
+              >
                 Cancel
               </Button>
               <Group gap='sm'>
@@ -426,7 +445,11 @@ function ContinouousStockAdjustmentDashboardItem({
               {scanHistory.map((result, index) => (
                 <tr key={index}>
                   <td>
-                    <Text size='xs' c={result.success ? 'green' : 'red'} fw={500}>
+                    <Text
+                      size='xs'
+                      c={result.success ? 'green' : 'red'}
+                      fw={500}
+                    >
                       {result.success ? '✓ Success' : '✗ Failed'}
                     </Text>
                     <Text size='xs'>{result.message}</Text>
