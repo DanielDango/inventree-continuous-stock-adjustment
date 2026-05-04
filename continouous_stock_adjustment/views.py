@@ -1,5 +1,6 @@
 """API views for the ContinouousStockAdjustment plugin."""
 
+from datetime import datetime
 from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -193,11 +194,12 @@ class BarcodeScanView(APIView):
 
                     # Create tracking entry for transaction history
                     try:
+                        timestamp = datetime.now().strftime('%H:%M')
                         StockItemTracking.objects.create(
                             item=item,
                             tracking_type=StockHistoryCode.STOCK_REMOVE,
                             user=request.user,
-                            notes=f'Removed via barcode scan: {barcode}',
+                            notes=f'[{timestamp}] Removed via barcode scan: {barcode}',
                             deltas={
                                 'removed': float(to_remove),
                                 'quantity': float(new_quantity)
@@ -212,11 +214,12 @@ class BarcodeScanView(APIView):
 
                         # Still try to create a minimal tracking entry without deltas
                         try:
+                            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                             StockItemTracking.objects.create(
                                 item=item,
                                 tracking_type=32,
                                 user=request.user,
-                                notes=f'Removed via barcode scan: {barcode}'
+                                notes=f'[{timestamp}] Removed via barcode scan: {barcode}'
                             )
                         except Exception:
                             # If even minimal tracking fails, continue with the operation
@@ -229,7 +232,7 @@ class BarcodeScanView(APIView):
                             # Check InvenTree's stock settings for auto-deletion
                             from common.models import InvenTreeSetting
                             delete_empty = InvenTreeSetting.get_setting('STOCK_DELETE_DEPLETED_DEFAULT', False)
-
+                            
                             if delete_empty:
                                 item.delete()
                         except Exception as delete_error:
