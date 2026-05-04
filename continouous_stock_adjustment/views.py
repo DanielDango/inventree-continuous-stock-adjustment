@@ -78,35 +78,58 @@ class BarcodeScanView(APIView):
         confirmed = request_serializer.validated_data.get('confirmed', False)
 
         try:
-            # Use InvenTree's barcode scanning helper to resolve the barcode
-            from InvenTree.helpers import hash_barcode
+            import json
 
-            # Try to match barcode against stock items and parts
-            barcode_hash = hash_barcode(barcode)
+            from InvenTree.helpers import hash_barcode
 
             part = None
             stock_item = None
-            
-            # First, try to find a stock item with this barcode
-            try:
-                stock_item = StockItem.objects.get(barcode_hash=barcode_hash, barcode_data=barcode)
-                part = stock_item.part
-            except StockItem.DoesNotExist:
-                pass
-            except StockItem.MultipleObjectsReturned:
-                # If multiple items, just get the first one
-                stock_item = StockItem.objects.filter(barcode_hash=barcode_hash, barcode_data=barcode).first()
-                if stock_item:
-                    part = stock_item.part
 
-            # If not found in stock items, try parts
+            # 1) Try to parse as InvenTree internal barcode format (JSON like {"stockitem": 123})
+            try:
+                barcode_json = json.loads(barcode)
+                if isinstance(barcode_json, dict):
+                    if 'stockitem' in barcode_json:
+                        try:
+                            stock_item = StockItem.objects.get(pk=int(barcode_json['stockitem']))
+                            part = stock_item.part
+                        except (StockItem.DoesNotExist, ValueError, TypeError):
+                            pass
+
+                    if not part and 'part' in barcode_json:
+                        try:
+                            part = Part.objects.get(pk=int(barcode_json['part']))
+                        except (Part.DoesNotExist, ValueError, TypeError):
+                            pass
+
+            except (json.JSONDecodeError, ValueError):
+                # Not JSON - continue with hash-based lookup
+                pass
+
+            # 2) Fall back to hash-based lookup for custom/external barcodes
             if not part:
+                barcode_hash = hash_barcode(barcode)
+
+                # First, try to find a stock item with this barcode hash
                 try:
-                    part = Part.objects.get(barcode_hash=barcode_hash, barcode_data=barcode)
-                except Part.DoesNotExist:
+                    stock_item = StockItem.objects.get(barcode_hash=barcode_hash, barcode_data=barcode)
+                    part = stock_item.part
+                except StockItem.DoesNotExist:
                     pass
-                except Part.MultipleObjectsReturned:
-                    part = Part.objects.filter(barcode_hash=barcode_hash, barcode_data=barcode).first()
+                except StockItem.MultipleObjectsReturned:
+                    # If multiple items, just get the first one
+                    stock_item = StockItem.objects.filter(barcode_hash=barcode_hash, barcode_data=barcode).first()
+                    if stock_item:
+                        part = stock_item.part
+
+                # If still not found, try parts via hash
+                if not part:
+                    try:
+                        part = Part.objects.get(barcode_hash=barcode_hash, barcode_data=barcode)
+                    except Part.DoesNotExist:
+                        pass
+                    except Part.MultipleObjectsReturned:
+                        part = Part.objects.filter(barcode_hash=barcode_hash, barcode_data=barcode).first()
 
             if not part:
                 response_data = {
